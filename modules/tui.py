@@ -6,6 +6,7 @@ from datetime import datetime
 from . import client_globals # Global db to track activity\
 from . import commands
 import asyncio
+import requests.exceptions
 
 
 
@@ -36,14 +37,14 @@ class CommandInput(Input):
         args = ' '.join(to_parse.split())
         args = args.split(' ')
 
-        # TODO: parse this shii out
-        
         # Call the function associated with the args[0] from the 
-        # CMD_TABLE using the args[1:] slice
+        # CMD_TABLE using the args[1:] slice and pass the client app as well
+        # so the function can handle the associated success output / edit the app
         try:
-            commands.CMD_TABLE[args[0]](args[1:])
-        except ValueError as err:
-            self.
+            commands.CMD_TABLE[args[0]](args[1:], self.app)
+        # TODO: Create an error exception table with functions as well
+        except Exception as err:
+            self.log_output(repr(err))
 
         self.clear()
         return

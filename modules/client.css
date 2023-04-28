@@ -1,0 +1,37 @@
+Screen {
+    layout: vertical;
+    background: black;
+    scrollbar-background: black;
+    scrollbar-color: grey;
+    scrollbar-color-active: white;
+}
+
+/*ImplantList {
+    width: 2fr;
+    border: solid green;
+    border-title-style: bold;
+    background: black;
+    border-title-color: white;
+}*/
+ServerLog {
+    width: 1fr;
+    background: black;
+    border: solid green;
+    border-title-style: bold;
+    border-title-color: white;
+}
+ServerLog Label {
+    max-width: 100%;
+}
+CommandInput {
+    dock: bottom;
+    height: 1;
+    border: solid green;
+}
+CommandOutput {
+    height: 1fr;
+    border: solid green;
+    border-title-color: white;
+    border-title-style: bold;
+}
+

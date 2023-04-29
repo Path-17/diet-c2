@@ -15,6 +15,10 @@ class TooManyArguments(Exception):
     pass
 class TooFewArguments(Exception):
     pass
+class FileDoesntExist(Exception):
+    pass
+class UploadFailure(Exception):
+    pass
 
 def arg_len_error(args: List[str], max: int, min: int):
     if len(args) > max:

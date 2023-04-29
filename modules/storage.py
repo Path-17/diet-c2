@@ -34,6 +34,13 @@ def create_command_str(id: str, type: CMD_TYPE, params: List[str]) -> str:
 
     return cmd_str
 
+class ImplantCommand:
+    def __init__(self, name: str, type: str, id: str, output=""):
+        self.implant_name = name
+        self.type = type
+        self.output = output
+        self.id = id
+
 # Only created when an implant connects to the server
 # Commands are pushed and popped from the implants command_queue
 class Implant:
@@ -75,6 +82,8 @@ class Operator:
         self.IP = IP
         self.port = port
         self.connected = True
+
+# Indexed by operator name
 class OperatorDatabase:
     def __init__(self):
         self.dict = {}
@@ -87,10 +96,26 @@ class OperatorDatabase:
             return False
         return True
 
-# implant_db as below is only used by the server
+# One command 
+class CommandLog:
+    def __init__(self, operator: Operator, command: ImplantCommand):
+        self.operator = operator
+        self.command = command
+        self.sent_timestamp = datetime.now()
+        self.response_timestamp = ""
+        self.response = ""
+
+# Indexed by command ID
+class CommandLogDatabase:
+    def __init__(self):
+        self.dict = {}
+    def add_command_log(self, cmd_log: CommandLog):
+        self.dict[cmd_log.command.id] = cmd_log
+# ImplantDatabase as below is only used by the server
 # the client just uses a dict of implant objects defined above
 class ImplantDatabase:
     def __init__(self):
         self.dict = {}
     def add_implant(self, new_implant: Implant):
         self.dict[new_implant.name] = new_implant
+

@@ -1,17 +1,10 @@
+import base64
 import hashlib
 from Crypto import Random
 from Crypto.Cipher import AES
-import string
-import random
-import base64
+import os
+import sys
 
-# Generate a random string, upper case, lower case, numbers
-def id_generator(N=32, chars=string.ascii_uppercase + string.digits + string.ascii_lowercase):
-    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N))
-
-# AES class implementation
-# encrypt(raw input) -> base64 output
-# decrypt(base64 input) -> raw output
 class AESCipher(object):
 
     def __init__(self, key):
@@ -34,10 +27,12 @@ class AESCipher(object):
         else:
             return base64.b64encode(iv + cipher.encrypt(raw.encode()))
 
-    def decrypt(self, enc):
+    def decrypt(self, enc, isFile=False):
         enc = base64.b64decode(enc)
         iv = enc[:AES.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        if isFile:
+            return self._unpad(cipher.decrypt(enc[AES.block_size:]))
         return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode('utf-8')
 
     def _pad(self, s):
@@ -48,4 +43,24 @@ class AESCipher(object):
 
     @staticmethod
     def _unpad(s):
+        print(type(s))
         return s[:-ord(s[len(s)-1:])]
+
+test = AESCipher("thisisakey:)1234")
+
+if sys.argv[1] == "file":
+    f_path = sys.argv[2]
+    save_path = sys.argv[3]
+    
+    # Read the file bytes
+    with open(f_path, "rb") as enc_f:
+        f_bytes = enc_f.read()
+        # decrypt
+        dec_bytes = test.decrypt(f_bytes, isFile=True)
+        # save to save_path
+        with open(save_path, "wb") as f:
+            f.write(dec_bytes)
+
+
+
+

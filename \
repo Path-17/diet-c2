@@ -45,22 +45,7 @@ def store_and_queue_command(cmd_str: str, implant_command: storage.ImplantComman
     cmd_log = storage.CommandLog(operator_db.dict[operator_name], implant_command)
     commandlog_db.add_command_log(cmd_log)
 
-def pretty_print(clas, indent=0):
-    print(' ' * indent +  type(clas).__name__ +  ':')
-    indent += 4
-    for k,v in clas.__dict__.items():
-        if '__dict__' in dir(v):
-            pretty_print(v,indent)
-        else:
-            print(' ' * indent +  k + ': ' + str(v))   
 ### Start the routing ###
-# DEBUG page
-@app.route("/admin/debug")
-def debug():
-    
-
-
-    return "debuggy"
 # Default dummy page
 @app.route("/", methods=['GET'])
 def under_construction():
@@ -161,20 +146,20 @@ def str_command():
             file_id = secure_filename(file_id)
 
             # Encrypt the file!
-            file.seek(0)
-            file_bytes = file.read()
-            print(type(file_bytes))
-            # Need to decode it from bytes first to get it to work in the encryptin 
-            enc_file = AES_INSTANCE.encrypt(file_bytes)
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], file_id), "wb") as f:
-                f.write(enc_file)
+            #enc_file = AES_INSTANCE.encrypt(file)
+            #with open(os.path.join(app.config['UPLOAD_FOLDER'], file_id), "wb") as f:
+            #    f.write(enc_file)
+
+            #print(sizeof(enc_file))
 
             # Save the file in the path specified in the config at top of file
-            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], file_id))
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], file_id))
+            print(type(file))
+            print(file.stream)
 
         # If server fails to save for any reason, return ERR_UPLOAD_EXCEPTION
-        except Exception as err:
-            print(repr(err))
+        except:
+            return server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value
 
     # Make the implant command object
     implant_command = storage.ImplantCommand(name=imp_name,

@@ -21,16 +21,20 @@ class ServerLog(VerticalScroll):
 # either directly from the client (like input errors)
 # or from the implant responding to a command
 class CommandOutput(VerticalScroll):
-    def print(self, text: str):
+    def print(self, text):
         self.mount(Label(text))
         self.scroll_end()
-    def err_generic(self, text: str):
+    def err_generic(self, text):
         self.mount(Label(text))
         self.scroll_end()
 # Input box at the bottom of the TUI
 class CommandInput(Input):
     def clear(self):
         self.value = ""
+    def log_output(self, text: str):
+        self.app.get_widget_by_id("command_output").print(text)
+    def log_error(self, text: str):
+        self.app.get_widget_by_id("command_output").print(text)
     def action_submit(self):
         # Parse the command
         to_parse = self.value.strip()
@@ -41,11 +45,13 @@ class CommandInput(Input):
         # CMD_TABLE using the args[1:] slice and pass the client app as well
         # so the function can handle the associated success output / edit the app
         try:
-            commands.CMD_TABLE[args[0]](args[1:], self.app)
+            commands.CMD_TABLE[args[0]](args, self.app)
         # TODO: Create an error exception table with functions as well
         except Exception as err:
-            self.log_output(repr(err))
+            self.log_error("Exception: {}".format(type(err).__name__))
+            self.log_error("Exception message: {}".format(err))
 
+        # Clear input box and exit
         self.clear()
         return
 

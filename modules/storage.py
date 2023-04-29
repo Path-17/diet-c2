@@ -47,7 +47,7 @@ class Implant:
     def __init__(self, name: str, major_v: str, build_num: str, sleep_time: int):
         self.name = name
         self.command_queue = []
-        self.last_checkin = datetime.now()
+        self.last_checkin = ""
         self.sleep_time = sleep_time
         self.major_v = major_v
         self.build_num = build_num

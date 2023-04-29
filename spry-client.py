@@ -1,10 +1,29 @@
 import argparse
 from typing import Dict
+from flask import Flask, request, make_response, jsonify
 from modules import tui
 from modules import client_globals
 from modules import server_codes
 from os import _exit
 import requests
+import threading
+
+# Client listener for updates from the server
+listener = Flask(__name__)
+
+@listener.route("/update", methods=['POST'])
+def update_tui():
+    # queue up the update
+    r_json = request.get_json()
+    update_type = r_json["update_type"]
+    update_data = r_json["update_data"]
+
+    # Add it to the update queue
+    client_globals.instance_db.new_server_update = True
+    client_globals.instance_db.server_updates.put({"update_type":update_type, "update_data":update_data})
+
+    return "0"
+
 
 def parse_initial_arguments():
     parser = argparse.ArgumentParser(
@@ -52,9 +71,8 @@ if __name__ == "__main__":
 
     # load the TUI
     app = tui.Client()
-    
-    # start the listener 
-    # server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False)).start()
 
+    # start the listener 
+    server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False)).start()
     # start the client TUI
     app.run()

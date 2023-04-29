@@ -5,6 +5,7 @@ from textual.containers import VerticalScroll, Horizontal
 from datetime import datetime
 from . import client_globals # Global db to track activity\
 from . import commands
+from . import server_codes
 import asyncio
 import requests.exceptions
 
@@ -64,8 +65,29 @@ class Client(App):
         while True:
             await asyncio.sleep(3)
             if client_globals.instance_db.new_server_update == True:
-                # TODO: Process the update
-               client_globals.instance_db.new_server_update = False
+                # Get the update from the queue
+                s_update = client_globals.instance_db.server_updates.get()
+                data = s_update["update_data"]
+                # Match the type of update
+                match s_update["update_type"]:
+                    # If new implant connected
+                    case server_codes.ServerUpdates.NEW_IMPLANT.value:
+                        new_imp = data
+                        # Log the new implant in the server logs section
+                        self.get_widget_by_id("server_logs").add_log(f"New implant {new_imp['name']} has connected to the Spry server.")
+                        # Add it to local db
+                        client_globals.instance_db.implant_db["new_imp.name"] = new_imp
+                    # If command response from implant
+                    case server_codes.ServerUpdates.NEW_COMMAND_RESPONSE.value:
+                        # Pull out response
+                        cmd_data = data["command"]
+                        # Log the response
+                        self.get_widget_by_id("command_output").print(f"Response from {cmd_data['implant_name']} for command {cmd_data['id']}\n{cmd_data['output']}")
+                    # Default case, just log the error to server_logs for now
+                    case _:
+                        self.get_widget_by_id("server_logs").add_log(f"Unhandled server update:\ndata={data}\ntype={s_update['update_type']}")
+
+                client_globals.instance_db.new_server_update = False
     def on_mount(self):
         asyncio.create_task(self.server_update())
     def compose(self) -> ComposeResult:

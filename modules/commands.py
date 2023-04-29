@@ -1,5 +1,6 @@
 import requests
 from os.path import isfile
+import subprocess
 from typing import List
 from . import client_globals
 from . import client_errors
@@ -185,6 +186,20 @@ def cmd_server(args: List[str], app):
 
     return
 
+# Executes shell commands in the currently selected terminal and displays 
+# stdout and stderr in the command_output window
+def cmd_terminal_passthrough(args: List[str], app):
+    # Error if less than 2 args
+    client_errors.arg_len_error(args=args, max=1000, min=2)
+    # Now use subproccess to call it, taking the [1] - [last] element of args
+    result = subprocess.run(args[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    # If error
+    if result.returncode != 0:
+        app.get_child_by_id("command_output").print(f"Error when calling {' '.join(args[1:])}:\n{result.stderr}")
+    else:
+        app.get_child_by_id("command_output").print(f"Output of {' '.join(args[1:])}:\n{result.stdout}")
+
 # Exits the client, the suplimentary args should be empty
 def cmd_exit(args: List[str], app):
     return
@@ -197,5 +212,6 @@ CMD_TABLE = {
                 "shell": cmd_shell,
                 "shellcode-inject": cmd_shellcode_inject,
                 "shellcode-spawn": cmd_shellcode_spawn,
+                "!": cmd_terminal_passthrough,
 }
 

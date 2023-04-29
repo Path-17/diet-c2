@@ -1,17 +1,10 @@
+import base64
 import hashlib
 from Crypto import Random
 from Crypto.Cipher import AES
-import string
-import random
-import base64
+import os
+import sys
 
-# Generate a random string, upper case, lower case, numbers
-def id_generator(N=32, chars=string.ascii_uppercase + string.digits + string.ascii_lowercase):
-    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N))
-
-# AES class implementation
-# encrypt(raw input) -> base64 output
-# decrypt(base64 input) -> raw output
 class AESCipher(object):
 
     def __init__(self, key):
@@ -50,4 +43,27 @@ class AESCipher(object):
 
     @staticmethod
     def _unpad(s):
+        print(type(s))
         return s[:-ord(s[len(s)-1:])]
+
+test = AESCipher("thisisakey:)1234")
+
+if sys.argv[1] == "file":
+    f_path = sys.argv[2]
+    save_path = sys.argv[3]
+    
+    # Read the file bytes
+    with open(f_path, "rb") as enc_f:
+        f_bytes = enc_f.read()
+        # encrypt 
+        enc_bytes = test.encrypt(f_bytes)
+        # save to save_path
+        with open(save_path, "wb") as f:
+            f.write(enc_bytes)
+if sys.argv[1] == "string":
+    str_raw = sys.argv[2]
+    print(test.encrypt(raw_str=str_raw))
+
+
+
+

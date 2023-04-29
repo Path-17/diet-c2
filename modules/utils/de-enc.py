@@ -60,6 +60,9 @@ if sys.argv[1] == "file":
         # save to save_path
         with open(save_path, "wb") as f:
             f.write(dec_bytes)
+if sys.argv[1] == "string":
+    enc_str = sys.argv[2]
+    print(test.decrypt(enc_str))
 
 
 

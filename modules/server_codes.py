@@ -7,6 +7,7 @@ class ServerErrors(Enum):
     ERR_OPERATOR_NAME_EXISTS = "ERR_OPERATOR_NAME_EXISTS"
     ERR_LOGIN_EXCEPTION = "ERR_LOGIN_EXCEPTION"
     ERR_UPLOAD_EXCEPTION = "ERR_UPLOAD_EXCEPTION"
+    ERR_IMPLANT_LOGIN_EXCEPTION = "ERR_IMPLANT_LOGIN_EXCEPTION"
 
 class ServerSuccess(Enum):
     UPLOAD_OK = "UPLOAD_OK"
@@ -24,4 +25,5 @@ def handle_server_errors(response: Response):
     match body:
         case ServerErrors.ERR_OPERATOR_NAME_EXISTS.value:
             pass
+
 

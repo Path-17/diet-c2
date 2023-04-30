@@ -1,3 +1,5 @@
+# This file is everything to do with the client commands to start the program, 
+# and also houses the update logic for client updates from the server!
 import argparse
 from typing import Dict
 from flask import Flask, request, make_response, jsonify

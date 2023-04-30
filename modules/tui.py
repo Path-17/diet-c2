@@ -3,7 +3,8 @@ from textual.app import App, ComposeResult
 from textual.widgets import Input, Label
 from textual.containers import VerticalScroll, Horizontal
 from datetime import datetime
-from . import client_globals # Global db to track activity\
+from . import client_globals # Global db to track activity
+from . import client_errors
 from . import commands
 from . import server_codes
 import asyncio
@@ -49,8 +50,11 @@ class CommandInput(Input):
             commands.CMD_TABLE[args[0]](args, self.app)
         # TODO: Create an error exception table with functions as well
         except Exception as err:
-            self.log_error("Exception: {}".format(type(err).__name__))
-            self.log_error("Exception message: {}".format(err))
+            if type(err) in client_errors.ERROR_TABLE:
+                client_errors.ERROR_TABLE[type(err)](args, self.app)
+            else:
+                self.log_error("Exception: {}".format(type(err).__name__))
+                self.log_error("Exception message: {}".format(err))
 
         # Clear input box and exit
         self.clear()

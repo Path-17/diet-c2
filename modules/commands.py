@@ -7,6 +7,7 @@ from . import client_errors
 from . import server_codes
 from . import storage
 from . import encryption
+from os import _exit, system
 
 ### This is the file that descibes the functions that handle client commands
 
@@ -227,7 +228,10 @@ def cmd_terminal_passthrough(args: List[str], app):
 
 # Exits the client, the suplimentary args should be empty
 def cmd_exit(args: List[str], app):
-    return
+    # Exit the TUI
+    app.exit("0")
+    system("reset")
+    _exit(0)
 
 # Here is the dict of supported commands 
 CMD_TABLE = {

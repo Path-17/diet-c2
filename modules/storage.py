@@ -62,10 +62,12 @@ class Implant:
         except:
             return "0"
 class client_db:
-    def __init__(self, server: str, port: str, operator_name: str, imp_db: Dict[str, Implant]):
+    def __init__(self, server: str, port: str, operator_name: str, imp_db: Dict[str, Implant], lip: str, lport: str):
         self.server = server
         self.port = port
         self.operator_name = operator_name
+        self.lip = lip
+        self.lport = lport
         self.selected_implant = ""
         self.new_server_update = False
         self.server_updates = queue.Queue() 

@@ -10,9 +10,9 @@ from os import _exit
 import requests
 import threading
 
-# Client listener for updates from the server
 listener = Flask(__name__)
 
+# Endpoint that updates the TUI :)
 @listener.route("/update", methods=['POST'])
 def update_tui():
     # queue up the update
@@ -26,16 +26,17 @@ def update_tui():
 
     return "0"
 
-
+# Helper to parse the arguments passed to the client
 def parse_initial_arguments():
     parser = argparse.ArgumentParser(
-            prog='Spry-C2 Operator Client',
-            description='Operator client for the Spry command and control framework')
-    parser.add_argument('--server', help="The IP or domain of the C1.5 server you want to connect to.", required=True)
-    parser.add_argument('--rport', help="The port of the C1.5 server you want to connect to.", required=True)
-    parser.add_argument('--username', help="The username you want to login to the C1.5 server as", required=True)
-    parser.add_argument('--lip', help="The IP you want the client to listen on for updates from the server", required=True)
-    parser.add_argument('--lport', help="The port you want the client to listen on for updates from the server", required=True)
+            prog='Diet-C2 Operator Client',
+            description='Operator client for the Diet command and control framework'
+            )
+    parser.add_argument('--server', help="The IP or domain of the Diet-C2 server you want to connect to.", required=True)
+    parser.add_argument('--rport', help="The port of the Diet-C2 server you want to connect to.", required=True)
+    parser.add_argument('--username', help="The username you want to login to the Diet-C2 server as.", required=True)
+    parser.add_argument('--lip', help="The IP you want the client to listen on for updates from the server.", required=True)
+    parser.add_argument('--lport', help="The port you want the client to listen on for updates from the server.", required=True)
     args = parser.parse_args()
     return args
 
@@ -66,15 +67,22 @@ if __name__ == "__main__":
     # Attempt to sign in to the server with a POST request
     # the login function returns the implant_db data currently
     # on the server
+    # If login fails, the client will exit out
     imp_db = login(server, port, operator_name, listen_ip, listen_port)
     
-    # create the globals
-    client_globals.init(server=server, port=port, op_name=operator_name, imp_db=imp_db)
+    # create the global db
+    client_globals.init_db(server=server, port=port, op_name=operator_name, imp_db=imp_db, lip=listen_ip, lport=listen_port)
+    # init the listener
+    #client_globals.init_listener()
 
     # load the TUI
     app = tui.Client()
+      
+    # Listener setup 
+    server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False))
+    # Setup as a daemon so once main thread stops, the server will die too
+    server_thread.setDaemon(True)
+    server_thread.start()
 
-    # start the listener 
-    server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False)).start()
     # start the client TUI
     app.run()

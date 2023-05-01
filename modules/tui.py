@@ -15,28 +15,33 @@ import requests.exceptions
 # Where server updates are displayed
 class ServerLog(VerticalScroll):
     def add_log(self, text: str):
-        now = datetime.now()
-        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        self.mount(Label(f"{dt_string}: {text}"))
+        # Prepend with the time and Update:
+        # self.mount(Label(Text.assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')}) UPDATE: ","cyan bold" ), f"{text}")))
+        self.mount(Label(Text.assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')}) UPDATE: ","#6495ed bold" ), f"{text}")))
         self.scroll_end()
 # Where command output is displayed
 # either directly from the client (like input errors)
 # or from the implant responding to a command
 class CommandOutput(VerticalScroll):
-    def print(self, text):
-        self.mount(Label(text))
+    def print(self, text: Text):
+        # Prepend with the time and OK:
+        to_print = Text().assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')})", "green bold"), (" OK: ", "green bold"))
+        to_print.append(text)
+        self.mount(Label(to_print))
         self.scroll_end()
-    def err_generic(self, text):
-        self.mount(Label(text))
+    def err_generic(self, text: Text):
+        to_print = Text().assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')})", "red bold"), (" ERROR: ", "red bold"))
+        to_print.append(text)
+        self.mount(Label(to_print))
         self.scroll_end()
 # Input box at the bottom of the TUI
 class CommandInput(Input):
     def clear(self):
         self.value = ""
-    def log_output(self, text: str):
+    def log_output(self, text: Text):
         self.app.get_widget_by_id("command_output").print(text)
-    def log_error(self, text: str):
-        self.app.get_widget_by_id("command_output").print(text)
+    def log_error(self, text: Text):
+        self.app.get_widget_by_id("command_output").err_generic(text)
     def action_submit(self):
         # Parse the command
         to_parse = self.value.strip()
@@ -78,7 +83,7 @@ class Client(App):
                     case server_codes.ServerUpdates.NEW_IMPLANT.value:
                         new_imp = data
                         # Log the new implant in the server logs section
-                        self.get_widget_by_id("server_logs").add_log(f"New implant {new_imp['name']} has connected to the Spry server.")
+                        self.get_widget_by_id("server_logs").add_log(Text().assemble(f"New implant \'", (new_imp['name'], "bold"), "\' has connected to the Diet-C2 server."))
                         # Add it to local db
                         client_globals.instance_db.implant_db["new_imp.name"] = new_imp
                     # If command response from implant
@@ -86,7 +91,7 @@ class Client(App):
                         # Pull out response
                         cmd_data = data["command"]
                         # Log the response
-                        self.get_widget_by_id("command_output").print(f"Response from {cmd_data['implant_name']} for command {cmd_data['id']}\n{cmd_data['output']}")
+                        self.get_widget_by_id("command_output").print(Text().assemble(f"Response from \'", (cmd_data['implant_name'], "bold"), "\' for command \'", (cmd_data['id'], "bold"), f"\n{cmd_data['output']}"))
                     # Default case, just log the error to server_logs for now
                     case _:
                         self.get_widget_by_id("server_logs").add_log(f"Unhandled server update:\ndata={data}\ntype={s_update['update_type']}")
@@ -99,9 +104,11 @@ class Client(App):
         with Horizontal():
             server_logs = ServerLog(id="server_logs")
             server_logs.border_title = "Server Logs"
+            server_logs.can_focus = False
             yield server_logs
-            server_logs.add_log(f"Successfully connected to C1.5 server {client_globals.instance_db.server}:{client_globals.instance_db.port} as \'{client_globals.instance_db.operator_name}\'")
+            server_logs.add_log(f"Successfully connected to the Diet-C2 server \'{client_globals.instance_db.server}:{client_globals.instance_db.port}\' as \'{client_globals.instance_db.operator_name}\'")
         command_output = CommandOutput(id="command_output")
         command_output.border_title = "Command Output - No Implant Selected"
+        command_output.can_focus = False
         yield command_output
         yield CommandInput(placeholder="Input commands here, 'help' for available commands", id="command_input")

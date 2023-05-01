@@ -16,12 +16,13 @@ Screen {
 ServerLog {
     width: 1fr;
     background: black;
-    border: solid green;
+    border: solid grey;
     border-title-style: bold;
     border-title-color: white;
 }
 ServerLog Label {
     max-width: 100%;
+    margin: 1;
 }
 CommandInput {
     dock: bottom;
@@ -30,8 +31,12 @@ CommandInput {
 }
 CommandOutput {
     height: 1fr;
-    border: solid green;
+    border: solid grey;
     border-title-color: white;
     border-title-style: bold;
+}
+
+CommandOutput Label {
+    margin: 1;
 }
 

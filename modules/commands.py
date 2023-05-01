@@ -1,6 +1,7 @@
 import requests
 from os.path import isfile
 import subprocess
+from rich.text import Text
 from typing import List
 from . import client_globals
 from . import client_errors
@@ -8,6 +9,7 @@ from . import server_codes
 from . import storage
 from . import encryption
 from os import _exit, system
+from datetime import datetime
 
 ### This is the file that descibes the functions that handle client commands
 
@@ -29,7 +31,8 @@ def update_implant_db():
 
 # Helper function that prints a success message for implant commands
 def print_success(cmd_id: str, args: List[str], app):
-    app.get_child_by_id("command_output").print(f"The command \'{' '.join(args)}\' with ID {cmd_id} was successfully sent to implant \'{client_globals.instance_db.selected_implant}\'")
+    app.get_child_by_id("command_output").print(Text().assemble("The command \'", (' '.join(args), "bold"), "\' with ID \'", (cmd_id, "bold"), "\' was successfully sent to implant \'", (client_globals.instance_db.selected_implant, "bold"), "\'."))
+
 
 # Helper function that sends just a text command
 def post_command(cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str):
@@ -104,7 +107,7 @@ def cmd_select(args: List[str], app):
     app.get_child_by_id("command_output").border_title = f"Command Output - Connected to {args[1]}"
 
     # Print a success message to the command Output
-    app.get_child_by_id("command_output").print(f"Successfully connected to {args[1]}")
+    app.get_child_by_id("command_output").print(Text().assemble("Successfully connected to implant \'", (args[1], "bold"), "\'."))
 
     return
 
@@ -206,7 +209,7 @@ def cmd_server(args: List[str], app):
             # Must be 2 args long
             client_errors.arg_len_error(args, max=2, min=2)
             # Print the server info to the command output
-            app.get_child_by_id["command_output"].print("Currently connected to {client_globals.instance_db.server} on port {client_global.instance_db.port} as \'{client_globals.instance_db.operator_name}\'")
+            app.get_child_by_id["command_output"].print(Text().assemble("Currently connected to ", (client_globals.instance_db.server, "bold"), " on port ", (client_globals.instance_db.port, "bold"), " as \'", (client_globals.instance_db.operator_name, "bold"), "\'."))
         case _:
             raise client_errors.CommandDoesntExist
 
@@ -222,9 +225,11 @@ def cmd_terminal_passthrough(args: List[str], app):
 
     # If error
     if result.returncode != 0:
-        app.get_child_by_id("command_output").print(f"Error when calling {' '.join(args[1:])}:\n{result.stderr}")
+        to_print = Text().assemble(f"The terminal command \'", (' '.join(args[1:]), "bold"), f"\' errored out:\n{result.stderr}")
+        app.get_child_by_id("command_output").err_generic(to_print)
     else:
-        app.get_child_by_id("command_output").print(f"Output of {' '.join(args[1:])}:\n{result.stdout}")
+        to_print = Text().assemble(f"Terminal output of \'", (' '.join(args[1:]), "bold"), f"\':\n{result.stdout}")
+        app.get_child_by_id("command_output").print(to_print)
 
 # Exits the client, the suplimentary args should be empty
 def cmd_exit(args: List[str], app):

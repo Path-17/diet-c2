@@ -22,7 +22,8 @@ ServerLog {
 }
 ServerLog Label {
     max-width: 100%;
-    margin: 1;
+    margin-left: 1;
+    margin-right: 1;
 }
 CommandInput {
     dock: bottom;
@@ -37,6 +38,8 @@ CommandOutput {
 }
 
 CommandOutput Label {
-    margin: 1;
+    margin-left: 1;
+    margin-right: 1;
+    max-widht: 100%;
 }
 

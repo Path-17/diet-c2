@@ -8,9 +8,24 @@ from . import client_errors
 from . import commands
 from . import server_codes
 import asyncio
-import requests.exceptions
 
-
+class ImplantList(VerticalScroll):
+    def init(self):
+        self.mount(Horizontal(id="implant_list_titles"))
+        titles = self.get_child_by_id("implant_list_titles")
+        titles.mount(Label("ID"))
+        titles.mount(Label("Nickname"))
+        titles.mount(Label("IP"))
+        titles.mount(Label("User"))
+        titles.mount(Label("Last Seen"))
+    def add_implant(self, name: str, IP: str, user: str):
+        self.mount(Horizontal(id=name))
+        implant_item = self.get_child_by_id(name)
+        implant_item.mount(Label(name))
+        implant_item.mount(Label(""))
+        implant_item.mount(Label(IP))
+        implant_item.mount(Label(user))
+        implant_item.mount(Label("0s"))
 
 # Where server updates are displayed
 class ServerLog(VerticalScroll):
@@ -53,7 +68,7 @@ class CommandInput(Input):
         # so the function can handle the associated success output / edit the app
         try:
             commands.CMD_TABLE[args[0]](args, self.app)
-        # TODO: Create an error exception table with functions as well
+        # The exceptions raised get handled by an ERROR_TABLE of handlers
         except Exception as err:
             if type(err) in client_errors.ERROR_TABLE:
                 client_errors.ERROR_TABLE[type(err)](args, self.app)
@@ -85,7 +100,9 @@ class Client(App):
                         # Log the new implant in the server logs section
                         self.get_widget_by_id("server_logs").add_log(Text().assemble(f"New implant \'", (new_imp['name'], "bold"), "\' has connected to the Diet-C2 server."))
                         # Add it to local db
-                        client_globals.instance_db.implant_db["new_imp.name"] = new_imp
+                        client_globals.instance_db.implant_db[new_imp["name"]] = new_imp
+                        # Append to implant List
+                        self.get_widget_by_id("implant_list").add_implant(name=str(new_imp["name"]), os_ver=str(new_imp["major_v"]))
                     # If command response from implant
                     case server_codes.ServerUpdates.NEW_COMMAND_RESPONSE.value:
                         # Pull out response
@@ -102,6 +119,10 @@ class Client(App):
     def compose(self) -> ComposeResult:
         # Initialize the TUI
         with Horizontal():
+            implant_list = ImplantList(id="implant_list")
+            implant_list.border_title = "Implant List"
+            yield implant_list
+            implant_list.init()
             server_logs = ServerLog(id="server_logs")
             server_logs.border_title = "Server Logs"
             server_logs.can_focus = False

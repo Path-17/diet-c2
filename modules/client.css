@@ -6,13 +6,20 @@ Screen {
     scrollbar-color-active: white;
 }
 
-/*ImplantList {
+ImplantList {
     width: 2fr;
-    border: solid green;
+    border: solid grey;
     border-title-style: bold;
     background: black;
     border-title-color: white;
-}*/
+}
+ImplantList Horizontal {
+    height: 1;
+}
+ImplantList Horizontal Label {
+    width: 1fr;
+    content-align: center middle;
+}
 ServerLog {
     width: 1fr;
     background: black;
@@ -21,7 +28,7 @@ ServerLog {
     border-title-color: white;
 }
 ServerLog Label {
-    max-width: 100%;
+    max-width: 95%;
     margin-left: 1;
     margin-right: 1;
 }
@@ -40,6 +47,6 @@ CommandOutput {
 CommandOutput Label {
     margin-left: 1;
     margin-right: 1;
-    max-widht: 100%;
+    max-width: 95%;
 }
 

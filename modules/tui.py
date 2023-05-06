@@ -18,20 +18,41 @@ class ImplantList(VerticalScroll):
         titles.mount(Label("IP"))
         titles.mount(Label("User"))
         titles.mount(Label("Last Seen"))
-    def add_implant(self, name: str, IP: str, user: str):
-        self.mount(Horizontal(id=name))
-        implant_item = self.get_child_by_id(name)
-        implant_item.mount(Label(name))
-        implant_item.mount(Label(""))
+        # Populate the existing implants from the implant db
+        for implant_name in client_globals.instance_db.implant_db:
+            self.mount(Horizontal(id=f"imp-{implant_name}"))
+            implant = client_globals.instance_db.implant_db[implant_name]
+            implant_item = self.get_child_by_id(f"imp-{implant_name}")
+            implant_item.mount(Label(implant_name))
+            implant_item.mount(Label("", id=f"nick-{implant_name}"))
+            implant_item.mount(Label(implant["ip"]))
+            implant_item.mount(Label(implant["user"]))
+            implant_item.mount(Label("0s", id=f"timer-{implant_name}"))
+            asyncio.create_task(self.update_timer(implant_item.get_child_by_id(f"timer-{implant_name}")))
+        self.scroll_end()
+    def add_implant(self, implant_name: str, IP: str, user: str):
+        self.mount(Horizontal(id=f"imp-{implant_name}"))
+        implant_item = self.get_child_by_id(f"imp-{implant_name}")
+        implant_item.mount(Label(implant_name))
+        implant_item.mount(Label("", id=f"nick-{implant_name}"))
         implant_item.mount(Label(IP))
         implant_item.mount(Label(user))
-        implant_item.mount(Label("0s"))
+        implant_item.mount(Label("0s", id=f"timer-{implant_name}"))
+        asyncio.create_task(self.update_timer(implant_item.get_child_by_id(f"timer-{implant_name}")))
+        self.scroll_end()
+    async def update_timer(self, timer_label):
+        last_seen = int(timer_label.renderable.plain[:-1])
+        while True:
+            await asyncio.sleep(1)
+            last_seen = last_seen + 1
+            timer_label.update(f"{last_seen}s")
+    def reset_timer(self, implant_name: str):
+        self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"timer-{implant_name}").update("0s")
 
 # Where server updates are displayed
 class ServerLog(VerticalScroll):
     def add_log(self, text: str):
         # Prepend with the time and Update:
-        # self.mount(Label(Text.assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')}) UPDATE: ","cyan bold" ), f"{text}")))
         self.mount(Label(Text.assemble((f"({datetime.now().strftime('%Y/%m/%d %H:%M:%S')}) UPDATE: ","#6495ed bold" ), f"{text}")))
         self.scroll_end()
 # Where command output is displayed
@@ -88,7 +109,7 @@ class Client(App):
     async def server_update(self):
         while True:
             await asyncio.sleep(3)
-            if client_globals.instance_db.new_server_update == True:
+            while client_globals.instance_db.server_updates.empty() == False:
                 # Get the update from the queue
                 s_update = client_globals.instance_db.server_updates.get()
                 data = s_update["update_data"]
@@ -102,19 +123,27 @@ class Client(App):
                         # Add it to local db
                         client_globals.instance_db.implant_db[new_imp["name"]] = new_imp
                         # Append to implant List
-                        self.get_widget_by_id("implant_list").add_implant(name=str(new_imp["name"]), os_ver=str(new_imp["major_v"]))
+                        self.get_widget_by_id("implant_list").add_implant(implant_name=str(new_imp["name"]), IP=str(new_imp["ip"]), user=str(new_imp["user"]))
+                        self.refresh()
                     # If command response from implant
                     case server_codes.ServerUpdates.NEW_COMMAND_RESPONSE.value:
                         # Pull out response
                         cmd_data = data["command"]
                         # Log the response
                         self.get_widget_by_id("command_output").print(Text().assemble(f"Response from \'", (cmd_data['implant_name'], "bold"), "\' for command ID \'", (cmd_data['id'], "bold"), f"\'\n{cmd_data['output']}"))
+                        self.refresh()
+                    case server_codes.ServerUpdates.IMPLANT_CHECKIN.value:
+                        # Pull out the implant name
+                        implant_name = data
+                        # Reset the timer
+                        self.get_widget_by_id("implant_list").reset_timer(str(implant_name))
+                        self.refresh()
                     # Default case, just log the error to server_logs for now
                     case _:
                         self.get_widget_by_id("server_logs").add_log(f"Unhandled server update:\ndata={data}\ntype={s_update['update_type']}")
-
-                client_globals.instance_db.new_server_update = False
+                        self.refresh()
     def on_mount(self):
+        self.auto_refresh = 0.5
         asyncio.create_task(self.server_update())
     def compose(self) -> ComposeResult:
         # Initialize the TUI

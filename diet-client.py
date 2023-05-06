@@ -24,6 +24,8 @@ def update_tui():
     client_globals.instance_db.new_server_update = True
     client_globals.instance_db.server_updates.put({"update_type":update_type, "update_data":update_data})
 
+    print(r_json)
+
     return "0"
 
 # Helper to parse the arguments passed to the client

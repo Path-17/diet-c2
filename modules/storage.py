@@ -24,7 +24,8 @@ def create_command_str(id: str, type: CMD_TYPE, params: List[str]) -> str:
     cmd_str += ":::"
     # CMD_TYPE is always next
     cmd_str += type.value
-    cmd_str += ":::"
+    if len(params) > 0:
+        cmd_str += ":::"
 
     # Loop through the params and add those as well
     for i in range(len(params)):
@@ -81,11 +82,12 @@ class client_db:
 
 # operator and operator_database used by server to track operators
 class Operator:
-    def __init__(self, name: str, IP: str, port: str):
+    def __init__(self, name: str, IP: str, port: str, logout_code: str):
         self.name = name
         self.IP = IP
         self.port = port
         self.connected = True
+        self.logout_code = logout_code
 
 # Indexed by operator name
 class OperatorDatabase:

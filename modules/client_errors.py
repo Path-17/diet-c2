@@ -51,6 +51,11 @@ def handle_UploadFailure(args: List[str], app):
     # TODO: Implement file upload retries
     #print_err(app, f"ERROR: The upload of file \'{args[1]}\' failed, no file was sent to the server.")
     print_err(app, Text().assemble("The upload of file \'", (args[1], "bold"), "\' failed, no file was sent to the server or implant."))
+class LogoutError(Exception):
+    pass
+def handle_LogoutError(args: List[str], app):
+    print_err(app, Text().assemble("The logout failed, press CTRL+C to exit the Diet client."))
+
 
 # Helper for arg lengths
 def arg_len_error(args: List[str], max: int, min: int):
@@ -69,6 +74,7 @@ ERROR_TABLE = {
         TooFewArguments: handle_TooFewArguments,
         FileDoesntExist: handle_FileDoesntExist,
         UploadFailure: handle_UploadFailure,
-        KeyError: handle_CommandDoesntExist
+        KeyError: handle_CommandDoesntExist,
+        LogoutError: handle_LogoutError
     }
 

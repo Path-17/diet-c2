@@ -43,7 +43,7 @@ def parse_initial_arguments():
     return args
 
 def login(server: str, port: str, name: str, op_ip: str, op_port: str) -> Dict:
-    data = {'username': name, "lip": op_ip, "lport": op_port}
+    data = {'username': name, "lip": op_ip, "lport": op_port, "logout_code": client_globals.logout_code}
     login_endpoint = "/admin/login"
 
     try:
@@ -65,6 +65,9 @@ if __name__ == "__main__":
     port = args.rport
     listen_port = args.lport
     listen_ip = args.lip
+
+    # Generate a logout code
+    client_globals.init_logout_code()
 
     # Attempt to sign in to the server with a POST request
     # the login function returns the implant_db data currently

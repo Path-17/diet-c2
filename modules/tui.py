@@ -41,10 +41,9 @@ class ImplantList(VerticalScroll):
         asyncio.create_task(self.update_timer(implant_item.get_child_by_id(f"timer-{implant_name}")))
         self.scroll_end()
     async def update_timer(self, timer_label):
-        last_seen = int(timer_label.renderable.plain[:-1])
         while True:
             await asyncio.sleep(1)
-            last_seen = last_seen + 1
+            last_seen = int(timer_label.renderable.plain[:-1]) + 1
             timer_label.update(f"{last_seen}s")
     def reset_timer(self, implant_name: str):
         self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"timer-{implant_name}").update("0s")

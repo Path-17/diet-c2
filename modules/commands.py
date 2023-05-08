@@ -274,6 +274,39 @@ def cmd_terminal_passthrough(args: List[str], app):
     else:
         to_print = Text().assemble(f"Terminal output of \'", (' '.join(args[1:]), "bold"), f"\':\n{result.stdout}")
         app.get_child_by_id("command_output").print(to_print)
+# Nicknames a implant as something else
+# nicknames can be used in place of regular names
+def cmd_nickname(args: List[str], app):
+    # Nees to be exactly 3 words
+    client_errors.arg_len_error(args, max=3, min=3)
+
+    # Check the length of the nickname
+    # should be 32 or less chars
+    if len(args[2]) > 32:
+        raise client_errors.NicknameTooLong
+
+    # First force update
+    update_implant_db()
+
+    # Now make sure that the implant exists
+    if args[1] not in client_globals.instance_db.implant_db:
+        raise client_errors.ImplantDoesntExist
+
+    # Now make sure that the nickname isn't the name of another implant, or
+    # the current implant
+    if args[2] in client_globals.instance_db.implant_db:
+        raise client_errors.NicknameCollision
+
+    # Now make sure that the nickname doesn't exist for another implant
+    if args[2] in client_globals.instance_db.nicknames and client_globals.instance_db.nicknames[args[2]] != args[1]:
+        raise client_errors.NicknameCollision
+    
+    # Now push the update to the rename dict
+    # format is in "nickname: real_name" pairs
+    client_globals.instance_db.nicknames[args[2]] = args[1]
+
+    # Update the TUI with the rename
+    app.get_widget_by_id("implant_list").nickname(args[1], args[2])
 
 # Exits the client, the suplimentary args should be empty
 def cmd_exit(args: List[str], app):
@@ -308,5 +341,6 @@ CMD_TABLE = {
                 "shellcode-spawn": cmd_shellcode_spawn,
                 "kill": cmd_kill_implant,
                 "!": cmd_terminal_passthrough,
+                "nickname": cmd_nickname,
 }
 

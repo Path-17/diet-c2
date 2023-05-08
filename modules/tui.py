@@ -16,7 +16,7 @@ class ImplantList(VerticalScroll):
         titles.mount(Label("ID"))
         titles.mount(Label("Nickname"))
         titles.mount(Label("IP"))
-        titles.mount(Label("User"))
+        titles.mount(Label("Hostname\\User"))
         titles.mount(Label("Last Seen"))
         # Populate the existing implants from the implant db
         for implant_name in client_globals.instance_db.implant_db:
@@ -50,6 +50,9 @@ class ImplantList(VerticalScroll):
     def mark_dead(self, implant_name: str):
         self.app.get_widget_by_id("command_output").print(Text().assemble("Implant \'", (implant_name, "bold"), "\' was successfully killed."))
         self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"timer-{implant_name}").update("DEAD")
+    def nickname(self, implant_name: str, nickname: str):
+        self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"nick-{implant_name}").update(nickname)
+
 
 # Where server updates are displayed
 class ServerLog(VerticalScroll):
@@ -85,6 +88,11 @@ class CommandInput(Input):
         to_parse = self.value.strip()
         args = ' '.join(to_parse.split())
         args = args.split(' ')
+
+        # Deal with the renames here
+        for i in range(len(args)):
+            if args[i] in client_globals.instance_db.nicknames:
+                args[i] = client_globals.instance_db.nicknames[args[i]]
 
         # Call the function associated with the args[0] from the 
         # CMD_TABLE using the args[1:] slice and pass the client app as well

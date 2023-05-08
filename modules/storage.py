@@ -81,6 +81,10 @@ class client_db:
         # the client and server easily
         self.implant_db = imp_db
 
+        # The nickname dict
+        # stored as nickname: real-name pairs
+        self.nicknames = {}
+
 # operator and operator_database used by server to track operators
 class Operator:
     def __init__(self, name: str, IP: str, port: str, logout_code: str):

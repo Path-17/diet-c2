@@ -55,6 +55,14 @@ class LogoutError(Exception):
     pass
 def handle_LogoutError(args: List[str], app):
     print_err(app, Text().assemble("The logout failed, press CTRL+C to exit the Diet client."))
+class NicknameTooLong(Exception):
+    pass
+def handle_NicknameTooLong(args: List[str], app):
+    print_err(app, Text().assemble("Nicknames must be less than 32 characters."))
+class NicknameCollision(Exception):
+    pass
+def handle_NicknameCollision(args: List[str], app):
+    print_err(app, Text().assemble("You cannot nickname an implant it's own name or the name/nickname of another implant."))
 
 
 # Helper for arg lengths
@@ -75,6 +83,8 @@ ERROR_TABLE = {
         FileDoesntExist: handle_FileDoesntExist,
         UploadFailure: handle_UploadFailure,
         KeyError: handle_CommandDoesntExist,
-        LogoutError: handle_LogoutError
+        LogoutError: handle_LogoutError,
+        NicknameTooLong: handle_NicknameTooLong,
+        NicknameCollision: handle_NicknameCollision
     }
 

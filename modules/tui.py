@@ -108,6 +108,10 @@ class CommandInput(Input):
 # in the global 
 class Client(App):
     CSS_PATH = "client.css" 
+
+    BINDINGS = [ ("ctrl+c", "exit()", "") ]
+    def action_exit(self):
+        commands.cmd_exit(["exit"], self)
     async def server_update(self):
         while True:
             await asyncio.sleep(3)

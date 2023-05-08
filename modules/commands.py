@@ -30,19 +30,32 @@ def update_implant_db():
 
 
 # Helper function that prints a success message for implant commands
-def print_success(cmd_id: str, args: List[str], app):
-    app.get_child_by_id("command_output").print(Text().assemble("The command \'", (' '.join(args), "bold"), "\' with ID \'", (cmd_id, "bold"), "\' was successfully sent to implant \'", (client_globals.instance_db.selected_implant, "bold"), "\'."))
+def print_success(cmd_id: str, args: List[str], app, name_override=""):
+    if name_override == "":
+        app.get_child_by_id("command_output").print(Text().assemble("The command \'", (' '.join(args), "bold"), "\' with ID \'", (cmd_id, "bold"), "\' was successfully sent to implant \'", (client_globals.instance_db.selected_implant, "bold"), "\'."))
+    else:
+        app.get_child_by_id("command_output").print(Text().assemble("The command \'", (' '.join(args), "bold"), "\' with ID \'", (cmd_id, "bold"), "\' was successfully sent to implant \'", (name_override, "bold"), "\'."))
 
 
 # Helper function that sends just a text command
-def post_command(cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str):
+def post_command(cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str, name_override=""):
     
-    x_headers = {
-                "X-Operator-Name": client_globals.instance_db.operator_name,
-                "X-Implant-Name": client_globals.instance_db.selected_implant,
-                "X-Command-Type": cmd_type.value,
-                "X-Command-Id": cmd_id,
-    }
+    global x_headers
+    if name_override == "":
+        x_headers = {
+                    "X-Operator-Name": client_globals.instance_db.operator_name,
+                    "X-Implant-Name": client_globals.instance_db.selected_implant,
+                    "X-Command-Type": cmd_type.value,
+                    "X-Command-Id": cmd_id,
+        }
+    else:
+        x_headers = {
+                    "X-Operator-Name": client_globals.instance_db.operator_name,
+                    "X-Implant-Name": name_override,
+                    "X-Command-Type": cmd_type.value,
+                    "X-Command-Id": cmd_id,
+        }
+
     
     url = "/admin/management"
 
@@ -210,26 +223,24 @@ def cmd_kill_implant(args: List[str], app):
     # Check for the length of args and raise appropriate exception
     client_errors.arg_len_error(args, max=2, min=2)
 
-
     # Need to query the server to make sure the implant_db is updated
     update_implant_db()
 
     # Now make sure that the selected implant exists
     if args[1] not in client_globals.instance_db.implant_db:
         raise client_errors.ImplantDoesntExist
-    # Error if not connected to implant
-    if not connected_to_implant():
-        raise client_errors.NotConnectedToImplant
     
-    # Make sure that you are connected to the implant
-
+    # CMD_ID generation
     cmd_id = encryption.id_generator(N=32)
 
+    # KILL_ID generation
+    kill_id = "KILL_" + encryption.id_generator(N=64)
+
     # Now send a kill message to the implant
-    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_KILL, []) 
-    post_command(cmd_str, storage.CMD_TYPE.CMD_KILL, cmd_id)
+    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_KILL, [kill_id]) 
+    post_command(cmd_str, storage.CMD_TYPE.CMD_KILL, cmd_id, name_override=args[1])
     
-    print_success(cmd_id=cmd_id, args=args, app=app)
+    print_success(cmd_id=cmd_id, args=args, app=app, name_override=args[1])
 # All associated server commands
 def cmd_server(args: List[str], app):
     # Check for at least 2 args initially

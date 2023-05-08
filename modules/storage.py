@@ -55,6 +55,7 @@ class Implant:
         self.connected = True
         self.ip = IP
         self.user = user
+        self.kill_id = ""
     def queue_command(self, cmd_str: str):
         self.command_queue.append(cmd_str)
     def pop_command(self) -> str:

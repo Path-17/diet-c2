@@ -18,6 +18,7 @@ class ServerUpdates(Enum):
     NEW_IMPLANT = "NEW_IMPLANT"
     NEW_COMMAND_RESPONSE = "NEW_COMMAND_RESPONSE"
     IMPLANT_CHECKIN = "IMPLANT_CHECKIN"
+    IMPLANT_DELETED = "IMPLANT_DELETED"
 
 def handle_server_errors(response: Response):
     # Get the body of the response

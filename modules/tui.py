@@ -47,6 +47,9 @@ class ImplantList(VerticalScroll):
             timer_label.update(f"{last_seen}s")
     def reset_timer(self, implant_name: str):
         self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"timer-{implant_name}").update("0s")
+    def mark_dead(self, implant_name: str):
+        self.app.get_widget_by_id("command_output").print(Text().assemble("Implant \'", (implant_name, "bold"), "\' was successfully killed."))
+        self.get_child_by_id(f"imp-{implant_name}").get_child_by_id(f"timer-{implant_name}").update("DEAD")
 
 # Where server updates are displayed
 class ServerLog(VerticalScroll):
@@ -133,9 +136,23 @@ class Client(App):
                         self.refresh()
                     case server_codes.ServerUpdates.IMPLANT_CHECKIN.value:
                         # Pull out the implant name
-                        implant_name = data
+                        implant_name = str(data)
                         # Reset the timer
-                        self.get_widget_by_id("implant_list").reset_timer(str(implant_name))
+                        self.get_widget_by_id("implant_list").reset_timer(implant_name)
+                        self.refresh()
+                    case server_codes.ServerUpdates.IMPLANT_DELETED.value:
+                        # Mark the implant in the table as dead
+                        implant_name = str(data)
+                        self.get_widget_by_id("implant_list").mark_dead(implant_name)
+
+                        # If currently connected to the implant, mark it as dead, and delete from the local dict
+                        if client_globals.instance_db.selected_implant == implant_name:
+                            self.get_child_by_id("command_output").border_title = "Command Output - No Implant Selected"
+
+                        # Serve a server update
+                        self.get_widget_by_id("server_logs").add_log(Text().assemble(f"Implant \'", (implant_name, "bold"), "\' has been killed."))
+                        
+                        del client_globals.instance_db.implant_db[implant_name]
                         self.refresh()
                     # Default case, just log the error to server_logs for now
                     case _:

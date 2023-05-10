@@ -78,8 +78,6 @@ if __name__ == "__main__":
     
     # create the global db
     client_globals.init_db(server=server, port=port, op_name=operator_name, imp_db=imp_db, lip=listen_ip, lport=listen_port)
-    # init the listener
-    #client_globals.init_listener()
 
     # load the TUI
     app = tui.Client()

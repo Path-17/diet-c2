@@ -26,7 +26,7 @@ def update_implant_db():
     port = client_globals.instance_db.port
 
     # Send the request and assign the response to the global implant db 
-    client_globals.instance_db.implant_db = requests.get(f"{server}:{port}{url}").json()["implant_db"]
+    client_globals.instance_db.implant_db = requests.get(f"{server}:{port}{url}", verify=False).json()["implant_db"]
 
 
 # Helper function that prints a success message for implant commands
@@ -66,7 +66,8 @@ def post_command(cmd_str: str, cmd_type: storage.CMD_TYPE, cmd_id: str, name_ove
                          client_globals.instance_db.port+
                          url,
                          headers=x_headers,
-                         data=cmd_struct
+                         data=cmd_struct,
+                         verify=False
                          )
     return
 
@@ -98,7 +99,8 @@ def post_file_command(file_path: str, file_id: str, cmd_str: str, cmd_type: stor
                              url,
                              headers=x_headers,
                              data=cmd_struct,
-                             files={'cmd_file': (file_id, file_data)}
+                             files={'cmd_file': (file_id, file_data)},
+                             verify=False
                             )
 
 # Command that selects an implant
@@ -319,7 +321,8 @@ def cmd_exit(args: List[str], app):
                          ":"+
                          client_globals.instance_db.port+
                          "/admin/logout",
-                         json=logout_struct
+                         json=logout_struct,
+                         verify=False
                          )
 
 
@@ -329,7 +332,7 @@ def cmd_exit(args: List[str], app):
         system("reset")
         _exit(0)
     else:
-        raise LogoutError
+        raise client_errors.LogoutError
 
 # Here is the dict of supported commands 
 CMD_TABLE = {

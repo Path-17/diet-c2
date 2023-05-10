@@ -47,21 +47,22 @@ def login(server: str, port: str, name: str, op_ip: str, op_port: str) -> Dict:
     login_endpoint = "/admin/login"
 
     try:
-        x = requests.post(server+":"+port+login_endpoint, json=data)
+        x = requests.post(server+":"+port+login_endpoint, json=data, verify=False)
         # Handle the operator exists error
         if x.text == server_codes.ServerErrors.ERR_OPERATOR_NAME_EXISTS.value:
             print(f"The operator \'{name}\' already exists on the supplied server, please pick a different one.")            
             _exit(1)
         return x.json()["implant_db"]
-    except:
+    except Exception as err:
         print("Not able to connect to the server, please verify the URL:port is correct and that the server is online.\nExiting now...")
+        print(err)
         _exit(1)
 
 if __name__ == "__main__":
     args = parse_initial_arguments()
     # init the globals
     operator_name = args.username
-    server = "http://"+args.server
+    server = "https://"+args.server
     port = args.rport
     listen_port = args.lport
     listen_ip = args.lip
@@ -84,7 +85,7 @@ if __name__ == "__main__":
     app = tui.Client()
       
     # Listener setup 
-    server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False))
+    server_thread = threading.Thread(target=lambda: listener.run(host=listen_ip, port=listen_port, debug=False, use_reloader=False, ssl_context="adhoc"))
     # Setup as a daemon so once main thread stops, the server will die too
     server_thread.daemon = True
     server_thread.start()

@@ -3,6 +3,13 @@ Lightweight C2 using python3 for the server and client, with a C++ implant.
 
 Used as a tool to learn and implement red team techniques at a low level.
 
+## Current Commands
+
+- shellcode-inject - Inject shellcode into a given PID (Both allocating RWX -> write -> execute OR allocating RW -> write -> RX -> execute)
+- Shellcode-spawn - Run shellcode in a new thread of the current process (Both allocating RWX -> write -> execute OR allocating RW -> write -> RX -> execute)
+- shell - Run a command using cmd.exe without showing the command prompt popup, and get back the output of the command
+- kill - Kill the selected implant, and cleanly exit out of the process 
+
 ## TODOS
 
 Client
@@ -18,7 +25,7 @@ Implant
 
 - [x] Designing the Architecture - Making a plan for *how* a command will be sent from the C2 to the server to the implant, and how output will be returned
 - [x] Foundational Features - Coding up the UI, command processing and overall file structure in such a way that it is easy to add a new command or feature
-- **New Commands** (**IN PROGRESS**) - Implementing different commands used by other C2s and anything new I can think of, 
+- **New Commands** (**IN PROGRESS**) - Implementing different commands used by other C2s and anything new I can think of
 - AV Avoidance - Using encryption, WinAPI call obfuscation and other methods to avoid getting flagged by AntiVirus solutions
 - Documentation - Self explanatory, but very difficult to write good docs, will be done throughout the development
 - Obfuscation - Make the implant hard to detect when looking for it, having believable communications with the server for example

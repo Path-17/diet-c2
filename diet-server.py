@@ -27,7 +27,7 @@ implant_db = storage.ImplantDatabase()
 commandlog_db = storage.CommandLogDatabase()
 
 # FOR TESTING only
-implant_db.add_implant(storage.Implant(name="test", major_v="10", build_num="1000", sleep_time=10, IP="127.0.0.1", user="test/user"))
+#implant_db.add_implant(storage.Implant(name="test", major_v="10", build_num="1000", sleep_time=10, IP="127.0.0.1", user="test/user"))
 
 AES_INSTANCE = encryption.AESCipher(ENC_KEY)
 

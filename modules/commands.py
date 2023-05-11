@@ -122,7 +122,7 @@ def cmd_select(args: List[str], app):
     app.get_child_by_id("command_output").border_title = f"Command Output - Connected to {args[1]}"
 
     # Print a success message to the command Output
-    app.get_child_by_id("command_output").print(Text().assemble("Successfully connected to implant \'", (args[1], "bold"), "\'."))
+    app.get_child_by_id("command_output").print(Text().assemble("Successfully selected implant \'", (args[1], "bold"), "\'."))
 
     return
 

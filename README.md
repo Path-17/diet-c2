@@ -14,12 +14,16 @@ Used as a tool to learn and implement red team techniques at a low level.
 
 Client
 - [ ] DLL injection command (file upload)
+- [ ] Straight file upload command
+- [ ] Straight file download command
 
 Server
 - [ ] Implement a system to save the state when the server is closed, that can be loaded when opened again
 
 Implant
 - [ ] Implement DLL injection (command parse -> download -> inject)
+- [ ] Implement file upload
+- [ ] Implement file download
 
 ## Milestones
 

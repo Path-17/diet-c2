@@ -29,16 +29,12 @@ commandlog_db = storage.CommandLogDatabase()
 # FOR TESTING only
 #implant_db.add_implant(storage.Implant(name="test", major_v="10", build_num="1000", sleep_time=10, IP="127.0.0.1", user="test/user"))
 
-AES_INSTANCE = encryption.AESCipher(ENC_KEY)
 
 # Helper to process a command for implants
 def store_and_queue_command(cmd_str: str, implant_command: storage.ImplantCommand, operator_name: str):
     
-    # Encrypt the command
-    enc_cmd_str = AES_INSTANCE.encrypt(raw_str=cmd_str).decode('utf-8')
-
-    # Add the encrypted command string to the implants queue
-    implant_db.dict[implant_command.implant_name].queue_command(enc_cmd_str)
+    # Add the command string to the implants queue
+    implant_db.dict[implant_command.implant_name].queue_command(cmd_str)
 
     # Put the command and operator into the commandlog_db
     cmd_log = storage.CommandLog(operator_db.dict[operator_name], implant_command)
@@ -285,10 +281,9 @@ def str_command():
             file.seek(0)
             file_bytes = file.read()
             # Need to decode it from bytes first to get it to work in the encryptin 
-            enc_file = AES_INSTANCE.encrypt(file_bytes)
             # Save the file in the path specified in the config at top of file
             with open(os.path.join(app.config['UPLOAD_FOLDER'], file_id), "wb") as f:
-                f.write(enc_file)
+                f.write(file_bytes)
 
 
         # If server fails to save for any reason, return ERR_UPLOAD_EXCEPTION

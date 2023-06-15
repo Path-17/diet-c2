@@ -150,7 +150,7 @@ def implant_download(FILE_ID):
 def implant_response():
 
     # Read in Base64 post data
-    data = request.get_data()
+    data = request.get_data().decode('utf-8')
 
     implant_name = request.headers["Cookie"]
     # If not signed in, do nothing, return

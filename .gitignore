@@ -1,5 +1,4 @@
 /uploads/*
-/implants/*
+/implants/implant-v1/*
 !/implants/implant-v1/implant-v1.cpp
-!/implants/implant-v2/src/main.rs
-!/implants/implant-v2/cargo.toml
+/implants/implant-v2/target/*

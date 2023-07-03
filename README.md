@@ -7,6 +7,7 @@ Used as a tool to learn and implement red team techniques at a low level.
 
 - shellcode-inject - Inject shellcode into a given PID (Both allocating RWX -> write -> execute OR allocating RW -> write -> RX -> execute)
 - shellcode-spawn - Run shellcode in a new thread of the current process (Both allocating RWX -> write -> execute OR allocating RW -> write -> RX -> execute)
+- shellcode-earlybird - Run shellcode using the earlybird technique (Both allocating RWX -> write -> execute OR allocating RW -> write -> RX -> execute)
 - shell - Run a command using cmd.exe without showing the command prompt popup, and get back the output of the command
 - kill - Kill the selected implant, and cleanly exit out of the process 
 

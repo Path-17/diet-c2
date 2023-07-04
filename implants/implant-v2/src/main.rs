@@ -186,7 +186,7 @@ fn send_response(
     }
 }
 
-fn main(argc: i32, argv: *const *const u8) -> i32 {
+fn main() {
 
     // println!("THIS IS HERE");
 
@@ -225,5 +225,4 @@ fn main(argc: i32, argv: *const *const u8) -> i32 {
         std::thread::sleep(std::time::Duration::from_secs(SLEEP_TIME))
     }
 
-    return 0;
 }

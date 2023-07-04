@@ -48,12 +48,12 @@ pub mod Constants {
 
 pub mod Functions {
 
-    use lazy_static::lazy_static;
     use libloading::os::windows::Symbol;
     use libloading::Library;
     use litcrypt::lc;
     use std::ffi::c_void;
 
+    #[derive(Debug)]
     pub struct obf_kernel32 {
         pub VirtualAlloc:
             Symbol<unsafe extern "C" fn(*const c_void, usize, u32, u32) -> *mut c_void>,
@@ -208,10 +208,5 @@ pub mod Functions {
                 ResumeThread: resume_thread.into_raw()
             };
         }
-    }
-
-    lazy_static! {
-        pub static ref OBF_KERNEL32: obf_kernel32 = initialize_obf_kernel32();
-        pub static ref OBF_NTDLL: obf_ntdll = initialize_obf_ntdll();
     }
 }

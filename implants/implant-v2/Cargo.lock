@@ -331,11 +331,11 @@ version = "0.1.0"
 dependencies = [
  "libloading",
  "litcrypt",
- "ntapi",
  "os_info",
  "reqwest",
  "rust_syscalls",
  "whoami",
+ "winapi",
 ]
 
 [[package]]

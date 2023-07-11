@@ -44,6 +44,7 @@ pub mod Constants {
         pub dwProcessId: u32,
         pub dwThreadId: u32,
     }
+
 }
 
 pub mod Functions {

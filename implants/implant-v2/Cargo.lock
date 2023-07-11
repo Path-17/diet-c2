@@ -335,6 +335,7 @@ dependencies = [
  "reqwest",
  "rust_syscalls",
  "whoami",
+ "windows-sys",
 ]
 
 [[package]]

